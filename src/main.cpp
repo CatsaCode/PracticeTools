@@ -24,6 +24,8 @@
 #include "UnityEngine/AudioSource.hpp"
 #include "UnityEngine/AudioClip.hpp"
 #include "GlobalNamespace/BeatmapDataItem.hpp"
+#include "GlobalNamespace/NoteData.hpp"
+#include "GlobalNamespace/NoteController.hpp"
 
 static modloader::ModInfo modInfo{MOD_ID, VERSION, 0};
 // Stores the ID and version of our mod, and is sent to
@@ -43,12 +45,13 @@ bool fullPause = true;
 // bool resumeAnimation = false;
 
 UnityW<GlobalNamespace::AudioTimeSyncController> audioTimeSyncController = nullptr;
-// UnityW<GlobalNamespace::GameSongController> gameSongController = nullptr;
 UnityW<GlobalNamespace::PauseController> pauseController = nullptr;
 UnityW<GlobalNamespace::NoteCutSoundEffectManager> noteCutSoundEffectManager = nullptr;
 GlobalNamespace::IGamePause* gamePause = nullptr;
 GlobalNamespace::BeatmapObjectManager* beatmapObjectManager = nullptr;
 GlobalNamespace::BeatmapCallbacksController* beatmapCallbacksController = nullptr;
+
+bool isResettingBeatmap = false;
 
 bool findImportantStuff() {
     #define findObject(name, source)                                        \
@@ -56,7 +59,6 @@ bool findImportantStuff() {
     if(!name) {PaperLogger.error("Could not find " #name); return false;} 
 
     findObject(audioTimeSyncController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::AudioTimeSyncController*>());
-    // findObject(gameSongController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::GameSongController*>());
     findObject(pauseController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::PauseController*>());
     findObject(noteCutSoundEffectManager, UnityEngine::Object::FindObjectOfType<GlobalNamespace::NoteCutSoundEffectManager*>());
     findObject(gamePause, pauseController->_gamePause);
@@ -67,17 +69,36 @@ bool findImportantStuff() {
     #undef getObject
 }
 
+
+MAKE_HOOK_MATCH(NoteCutSoundEffectManager_HandleNoteWasSpawned, &GlobalNamespace::NoteCutSoundEffectManager::HandleNoteWasSpawned, void,
+    GlobalNamespace::NoteCutSoundEffectManager* self, GlobalNamespace::NoteController* noteController
+) {
+    if(!isResettingBeatmap) return NoteCutSoundEffectManager_HandleNoteWasSpawned(self, noteController);
+    
+    GlobalNamespace::NoteData* noteData = noteController->get_noteData();
+    if(!self->IsSupportedNote(noteData)) return;
+    self->_prevNoteATime = noteData->get_time();
+    self->_prevNoteBTime = noteData->get_time();
+}
+
+MAKE_HOOK_MATCH(BeatmapCallbacksController_ManualUpdate, &GlobalNamespace::BeatmapCallbacksController::ManualUpdate, void,
+    GlobalNamespace::BeatmapCallbacksController* self, float songTime
+) {
+    BeatmapCallbacksController_ManualUpdate(self, songTime);
+    isResettingBeatmap = false;
+}
+
 void stopAllNoteCutSoundEffects() {
     for(int i = 0; i < noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->get_activeItems()->get_Count(); i++) {
         auto noteCutSoundEffect = noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->get_activeItems()->get_Item(i);
         noteCutSoundEffect->StopPlayingAndFinish();
     }
-    noteCutSoundEffectManager->_prevNoteATime = 0;
-    noteCutSoundEffectManager->_prevNoteBTime = 0;
 }
 
 void resetBeatmap() {
-    PaperLogger.debug("beatmapObjectManager->_allBeatmapObjects->get_Count: {}", beatmapObjectManager->_allBeatmapObjects->get_Count());
+    isResettingBeatmap = true;
+    
+    // Hide all existing objects
     for(int i = 0; i < beatmapObjectManager->_allBeatmapObjects->get_Count(); i++) {
         auto beatmapObject = beatmapObjectManager->_allBeatmapObjects->get_Item(i);
         // Dissolve instead of disable to trigger full despawn
@@ -85,12 +106,14 @@ void resetBeatmap() {
         beatmapObject->Dissolve(0);
     }
 
-    PaperLogger.debug("# beatmapCallbacksController->_callbacksInTimes->_entries: {}", beatmapCallbacksController->_callbacksInTimes->_entries.size());
-    PaperLogger.debug("First BeatmapDataItem time: {}", beatmapCallbacksController->_beatmapData->get_allBeatmapDataItems()->get_First()->get_Value()->get_time());
+    // Reset progress and force all objects to be processed again
+    // TODO Only rewind as necessary
     for(auto callbacksInTime : beatmapCallbacksController->_callbacksInTimes->_entries) {
-        callbacksInTime.value->lastProcessedNode = nullptr; // Fault
+        callbacksInTime.value->lastProcessedNode = nullptr;
     }
     beatmapCallbacksController->_prevSongTime = 0;
+    noteCutSoundEffectManager->_prevNoteATime = 0;
+    noteCutSoundEffectManager->_prevNoteBTime = 0;
 }
 
 void manualPause() {
@@ -102,16 +125,9 @@ void manualPause() {
 void manualResume() {
     if(fullPause) gamePause->Resume();
     else audioTimeSyncController->Resume();
-    // audioTimeSyncController will make it so pause + rewind prohibits unpausing
-    // gameSongController will make it so BeatmapCallbacksUpdater also pauses, stopping the notes from spawning while seeking
 }
 
 void manualSeekToAbsolute(float songTime) {
-    PaperLogger.debug("Seeking to absolute time: {}", songTime);
-    PaperLogger.debug("audioTimeSyncController state: {}", static_cast<int>(audioTimeSyncController->get_state()));
-    PaperLogger.debug("audioTimeSyncController audioLatency: {}", audioTimeSyncController->_audioLatency);
-    PaperLogger.debug("audioSource is playing ({}) at: {}", audioTimeSyncController->_audioSource->get_isPlaying(), audioTimeSyncController->_audioSource->get_time());
-    PaperLogger.debug("audioSource length: {}", audioTimeSyncController->_audioSource->clip->get_length());
     audioTimeSyncController->_startSongTime = std::max(0.0f, songTime);
     audioTimeSyncController->SeekTo(0);
     resetBeatmap();
@@ -127,7 +143,7 @@ void handleAOnPress() {
     if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) {
         manualPause();
     } else {
-        float offset = -1;
+        float offset = -3;
         manualSeekToAbsolute(audioTimeSyncController->get_songTime() + offset);
     }
 }
@@ -138,10 +154,6 @@ void handleBOnPress() {
 
     if(!findImportantStuff()) return;
 
-    PaperLogger.debug("audioTimeSyncController state: {}", static_cast<int>(audioTimeSyncController->get_state()));
-    PaperLogger.debug("audioTimeSyncController audioLatency: {}", audioTimeSyncController->_audioLatency);
-    PaperLogger.debug("audioSource is playing ({}) at: {}", audioTimeSyncController->_audioSource->get_isPlaying(), audioTimeSyncController->_audioSource->get_time());
-    PaperLogger.debug("audioSource length: {}", audioTimeSyncController->_audioSource->clip->get_length());
     manualResume();
 }
 
@@ -165,6 +177,9 @@ MOD_EXTERN_FUNC void late_load() noexcept {
     MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::BY, handleBOnPress);
 
     PaperLogger.info("Installing hooks...");
+
+    INSTALL_HOOK(PaperLogger, NoteCutSoundEffectManager_HandleNoteWasSpawned);
+    INSTALL_HOOK(PaperLogger, BeatmapCallbacksController_ManualUpdate);
 
     PaperLogger.info("Installed all hooks!");
 }
