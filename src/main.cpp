@@ -51,7 +51,7 @@ GlobalNamespace::IGamePause* gamePause = nullptr;
 GlobalNamespace::BeatmapObjectManager* beatmapObjectManager = nullptr;
 GlobalNamespace::BeatmapCallbacksController* beatmapCallbacksController = nullptr;
 
-bool isResettingBeatmap = false;
+bool isTimeSkipping = false;
 
 bool findImportantStuff() {
     #define findObject(name, source)                                        \
@@ -73,7 +73,7 @@ bool findImportantStuff() {
 MAKE_HOOK_MATCH(NoteCutSoundEffectManager_HandleNoteWasSpawned, &GlobalNamespace::NoteCutSoundEffectManager::HandleNoteWasSpawned, void,
     GlobalNamespace::NoteCutSoundEffectManager* self, GlobalNamespace::NoteController* noteController
 ) {
-    if(!isResettingBeatmap) return NoteCutSoundEffectManager_HandleNoteWasSpawned(self, noteController);
+    if(!isTimeSkipping) return NoteCutSoundEffectManager_HandleNoteWasSpawned(self, noteController);
     
     GlobalNamespace::NoteData* noteData = noteController->get_noteData();
     if(!self->IsSupportedNote(noteData)) return;
@@ -85,7 +85,7 @@ MAKE_HOOK_MATCH(BeatmapCallbacksController_ManualUpdate, &GlobalNamespace::Beatm
     GlobalNamespace::BeatmapCallbacksController* self, float songTime
 ) {
     BeatmapCallbacksController_ManualUpdate(self, songTime);
-    isResettingBeatmap = false;
+    isTimeSkipping = false;
 }
 
 void stopAllNoteCutSoundEffects() {
@@ -95,25 +95,13 @@ void stopAllNoteCutSoundEffects() {
     }
 }
 
-void resetBeatmap() {
-    isResettingBeatmap = true;
-    
-    // Hide all existing objects
+void despawnAllObjects() {
     for(int i = 0; i < beatmapObjectManager->_allBeatmapObjects->get_Count(); i++) {
         auto beatmapObject = beatmapObjectManager->_allBeatmapObjects->get_Item(i);
         // Dissolve instead of disable to trigger full despawn
         reinterpret_cast<UnityEngine::MonoBehaviour*>(beatmapObject)->get_gameObject()->SetActive(true);
         beatmapObject->Dissolve(0);
     }
-
-    // Reset progress and force all objects to be processed again
-    // TODO Only rewind as necessary
-    for(auto callbacksInTime : beatmapCallbacksController->_callbacksInTimes->_entries) {
-        callbacksInTime.value->lastProcessedNode = nullptr;
-    }
-    beatmapCallbacksController->_prevSongTime = 0;
-    noteCutSoundEffectManager->_prevNoteATime = 0;
-    noteCutSoundEffectManager->_prevNoteBTime = 0;
 }
 
 void manualPause() {
@@ -128,10 +116,26 @@ void manualResume() {
 }
 
 void manualSeekToAbsolute(float songTime) {
-    audioTimeSyncController->_startSongTime = std::max(0.0f, songTime);
+    isTimeSkipping = true;
+    bool reverse = songTime < audioTimeSyncController->get_songTime();
+
+    songTime = std::max(0.0f, songTime);
+    audioTimeSyncController->_startSongTime = songTime;
     audioTimeSyncController->SeekTo(0);
-    resetBeatmap();
+
+    beatmapCallbacksController->_prevSongTime = songTime;
+    noteCutSoundEffectManager->_prevNoteATime = songTime;
+    noteCutSoundEffectManager->_prevNoteBTime = songTime;
+
+    despawnAllObjects();
     stopAllNoteCutSoundEffects();
+
+    if(!reverse) return;
+    for(auto callbacksInTime : beatmapCallbacksController->_callbacksInTimes->_entries) {
+        while(callbacksInTime.value->lastProcessedNode != nullptr && callbacksInTime.value->lastProcessedNode->get_Value()->get_time() > songTime) {
+            callbacksInTime.value->lastProcessedNode = callbacksInTime.value->lastProcessedNode->get_Previous();
+        }
+    }
 }
 
 void handleAOnPress() {
