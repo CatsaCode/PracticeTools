@@ -7,6 +7,8 @@
 #include "metacore/shared/internals.hpp"
 #include "GlobalNamespace/AudioTimeSyncController.hpp"
 #include "GlobalNamespace/GameSongController.hpp"
+#include "GlobalNamespace/PauseController.hpp"
+#include "GlobalNamespace/IGamePause.hpp"
 #include "GlobalNamespace/BeatmapObjectManager.hpp"
 #include "GlobalNamespace/BeatmapCallbacksController.hpp"
 #include "GlobalNamespace/NoteCutSoundEffectManager.hpp"
@@ -17,6 +19,11 @@
 #include "UnityEngine/Resources.hpp"
 #include "UnityEngine/GameObject.hpp"
 #include "System/Collections/Generic/Dictionary_2.hpp"
+#include "System/Collections/Generic/LinkedList_1.hpp"
+#include "System/Collections/Generic/LinkedListNode_1.hpp"
+#include "UnityEngine/AudioSource.hpp"
+#include "UnityEngine/AudioClip.hpp"
+#include "GlobalNamespace/BeatmapDataItem.hpp"
 
 static modloader::ModInfo modInfo{MOD_ID, VERSION, 0};
 // Stores the ID and version of our mod, and is sent to
@@ -30,58 +37,112 @@ Configuration &getConfig() {
     return config;
 }
 
+// Stop collisions, switch saber models, etc.
+bool fullPause = true;
+// Whether to show the three second countdown before resuming
+// bool resumeAnimation = false;
+
+UnityW<GlobalNamespace::AudioTimeSyncController> audioTimeSyncController = nullptr;
+// UnityW<GlobalNamespace::GameSongController> gameSongController = nullptr;
+UnityW<GlobalNamespace::PauseController> pauseController = nullptr;
+UnityW<GlobalNamespace::NoteCutSoundEffectManager> noteCutSoundEffectManager = nullptr;
+GlobalNamespace::IGamePause* gamePause = nullptr;
+GlobalNamespace::BeatmapObjectManager* beatmapObjectManager = nullptr;
+GlobalNamespace::BeatmapCallbacksController* beatmapCallbacksController = nullptr;
+
+bool findImportantStuff() {
+    #define findObject(name, source)                                        \
+    name = source;                                                          \
+    if(!name) {PaperLogger.error("Could not find " #name); return false;} 
+
+    findObject(audioTimeSyncController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::AudioTimeSyncController*>());
+    // findObject(gameSongController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::GameSongController*>());
+    findObject(pauseController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::PauseController*>());
+    findObject(noteCutSoundEffectManager, UnityEngine::Object::FindObjectOfType<GlobalNamespace::NoteCutSoundEffectManager*>());
+    findObject(gamePause, pauseController->_gamePause);
+    findObject(beatmapObjectManager, MetaCore::Internals::beatmapObjectManager); // Must be renewed each time the game loads
+    findObject(beatmapCallbacksController, MetaCore::Internals::beatmapCallbacksController); // Must be renewed each time the game loads
+
+    return true;
+    #undef getObject
+}
+
+void stopAllNoteCutSoundEffects() {
+    for(int i = 0; i < noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->get_activeItems()->get_Count(); i++) {
+        auto noteCutSoundEffect = noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->get_activeItems()->get_Item(i);
+        noteCutSoundEffect->StopPlayingAndFinish();
+    }
+    noteCutSoundEffectManager->_prevNoteATime = 0;
+    noteCutSoundEffectManager->_prevNoteBTime = 0;
+}
+
+void resetBeatmap() {
+    PaperLogger.debug("beatmapObjectManager->_allBeatmapObjects->get_Count: {}", beatmapObjectManager->_allBeatmapObjects->get_Count());
+    for(int i = 0; i < beatmapObjectManager->_allBeatmapObjects->get_Count(); i++) {
+        auto beatmapObject = beatmapObjectManager->_allBeatmapObjects->get_Item(i);
+        // Dissolve instead of disable to trigger full despawn
+        reinterpret_cast<UnityEngine::MonoBehaviour*>(beatmapObject)->get_gameObject()->SetActive(true);
+        beatmapObject->Dissolve(0);
+    }
+
+    PaperLogger.debug("# beatmapCallbacksController->_callbacksInTimes->_entries: {}", beatmapCallbacksController->_callbacksInTimes->_entries.size());
+    PaperLogger.debug("First BeatmapDataItem time: {}", beatmapCallbacksController->_beatmapData->get_allBeatmapDataItems()->get_First()->get_Value()->get_time());
+    for(auto callbacksInTime : beatmapCallbacksController->_callbacksInTimes->_entries) {
+        callbacksInTime.value->lastProcessedNode = nullptr; // Fault
+    }
+    beatmapCallbacksController->_prevSongTime = 0;
+}
+
+void manualPause() {
+    if(fullPause) gamePause->Pause();
+    else audioTimeSyncController->Pause();
+    stopAllNoteCutSoundEffects();
+}
+
+void manualResume() {
+    if(fullPause) gamePause->Resume();
+    else audioTimeSyncController->Resume();
+    // audioTimeSyncController will make it so pause + rewind prohibits unpausing
+    // gameSongController will make it so BeatmapCallbacksUpdater also pauses, stopping the notes from spawning while seeking
+}
+
+void manualSeekToAbsolute(float songTime) {
+    PaperLogger.debug("Seeking to absolute time: {}", songTime);
+    PaperLogger.debug("audioTimeSyncController state: {}", static_cast<int>(audioTimeSyncController->get_state()));
+    PaperLogger.debug("audioTimeSyncController audioLatency: {}", audioTimeSyncController->_audioLatency);
+    PaperLogger.debug("audioSource is playing ({}) at: {}", audioTimeSyncController->_audioSource->get_isPlaying(), audioTimeSyncController->_audioSource->get_time());
+    PaperLogger.debug("audioSource length: {}", audioTimeSyncController->_audioSource->clip->get_length());
+    audioTimeSyncController->_startSongTime = std::max(0.0f, songTime);
+    audioTimeSyncController->SeekTo(0);
+    resetBeatmap();
+    stopAllNoteCutSoundEffects();
+}
+
 void handleAOnPress() {
     if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::AX)) return;
     PaperLogger.debug("A Pressed");
-    
-    auto audioTimeSyncController = MetaCore::Internals::audioTimeSyncController;
-    if(!audioTimeSyncController) {PaperLogger.error("Could not get AudioTimeSyncController"); return;}
 
-    auto beatmapObjectManager = MetaCore::Internals::beatmapObjectManager;
-    if(!beatmapObjectManager) {PaperLogger.error("Could not get BeatmapObjectManager"); return;}
-
-    auto beatmapCallbacksController = MetaCore::Internals::beatmapCallbacksController;
-    if(!beatmapCallbacksController) {PaperLogger.error("Could not get BeatmapCallbacksController"); return;}
-
-    auto noteCutSoundEffectManager = UnityEngine::Object::FindObjectOfType<GlobalNamespace::NoteCutSoundEffectManager*>();
-    if(!noteCutSoundEffectManager) {PaperLogger.error("Could not get NoteCutSoundEffectManager"); return;}
-
+    if(!findImportantStuff()) return;
 
     if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) {
-        audioTimeSyncController->Pause();
+        manualPause();
     } else {
         float offset = -1;
-        audioTimeSyncController->StartSong(audioTimeSyncController->get_songTime() - audioTimeSyncController->get_startSongTime() + offset);
-
-        // Taken from ReLoader hehe
-        for(int i = 0; i < beatmapObjectManager->_allBeatmapObjects->get_Count(); i++) {
-            auto beatmapObject = beatmapObjectManager->_allBeatmapObjects->get_Item(i);
-            reinterpret_cast<UnityEngine::MonoBehaviour*>(beatmapObject)->get_gameObject()->SetActive(true);
-            beatmapObject->Dissolve(1);
-        }
-
-        for(int i = 0; i < noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->get_activeItems()->get_Count(); i++) {
-            auto noteCutSoundEffect = noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->get_activeItems()->get_Item(i);
-            noteCutSoundEffect->StopPlayingAndFinish();
-        }
-        noteCutSoundEffectManager->_prevNoteATime = 0;
-        noteCutSoundEffectManager->_prevNoteBTime = 0;
-
-        for(auto callbacksAtTime : beatmapCallbacksController->_callbacksInTimes->_entries) {
-            callbacksAtTime.value->lastProcessedNode = nullptr;
-        }
-        beatmapCallbacksController->_prevSongTime = 0;
+        manualSeekToAbsolute(audioTimeSyncController->get_songTime() + offset);
     }
 }
 
 void handleBOnPress() {
     if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::BY)) return;
     PaperLogger.debug("B Pressed");
-    PaperLogger.debug("# AudioTimeSyncControllers: {}", UnityEngine::Resources::FindObjectsOfTypeAll<GlobalNamespace::AudioTimeSyncController*>().size());
-    auto audioTimeSyncController = UnityEngine::Resources::FindObjectsOfTypeAll<GlobalNamespace::AudioTimeSyncController*>()->FirstOrDefault();
-    if(!audioTimeSyncController) return;
 
-    audioTimeSyncController->Resume();
+    if(!findImportantStuff()) return;
+
+    PaperLogger.debug("audioTimeSyncController state: {}", static_cast<int>(audioTimeSyncController->get_state()));
+    PaperLogger.debug("audioTimeSyncController audioLatency: {}", audioTimeSyncController->_audioLatency);
+    PaperLogger.debug("audioSource is playing ({}) at: {}", audioTimeSyncController->_audioSource->get_isPlaying(), audioTimeSyncController->_audioSource->get_time());
+    PaperLogger.debug("audioSource length: {}", audioTimeSyncController->_audioSource->clip->get_length());
+    manualResume();
 }
 
 // Called at the early stages of game loading
