@@ -132,7 +132,7 @@ void manualSeekToAbsolute(float songTime) {
 
     if(!reverse) return;
     for(auto callbacksInTime : beatmapCallbacksController->_callbacksInTimes->_entries) {
-        while(callbacksInTime.value->lastProcessedNode != nullptr && callbacksInTime.value->lastProcessedNode->get_Value()->get_time() > songTime) {
+        while(callbacksInTime.value && callbacksInTime.value->lastProcessedNode != nullptr && callbacksInTime.value->lastProcessedNode->get_Value()->get_time() > songTime) {
             callbacksInTime.value->lastProcessedNode = callbacksInTime.value->lastProcessedNode->get_Previous();
         }
     }
