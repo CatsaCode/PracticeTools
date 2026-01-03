@@ -23,6 +23,7 @@
 #include "System/Collections/Generic/LinkedListNode_1.hpp"
 #include "UnityEngine/AudioSource.hpp"
 #include "UnityEngine/AudioClip.hpp"
+#include "GlobalNamespace/AudioManagerSO.hpp"
 #include "GlobalNamespace/BeatmapDataItem.hpp"
 #include "GlobalNamespace/NoteData.hpp"
 #include "GlobalNamespace/NoteController.hpp"
@@ -44,15 +45,17 @@ bool fullPause = true;
 // Whether to show the three second countdown before resuming
 // bool resumeAnimation = false;
 
-UnityW<GlobalNamespace::AudioTimeSyncController> audioTimeSyncController = nullptr;
-UnityW<GlobalNamespace::PauseController> pauseController = nullptr;
-UnityW<GlobalNamespace::NoteCutSoundEffectManager> noteCutSoundEffectManager = nullptr;
-GlobalNamespace::IGamePause* gamePause = nullptr;
-GlobalNamespace::BeatmapObjectManager* beatmapObjectManager = nullptr;
-GlobalNamespace::BeatmapCallbacksController* beatmapCallbacksController = nullptr;
+static UnityW<GlobalNamespace::AudioTimeSyncController> audioTimeSyncController = nullptr;
+static UnityW<GlobalNamespace::PauseController> pauseController = nullptr;
+static UnityW<GlobalNamespace::NoteCutSoundEffectManager> noteCutSoundEffectManager = nullptr;
+static UnityW<GlobalNamespace::AudioManagerSO> audioManager = nullptr;
+static GlobalNamespace::IGamePause* gamePause = nullptr;
+static GlobalNamespace::BeatmapObjectManager* beatmapObjectManager = nullptr;
+static GlobalNamespace::BeatmapCallbacksController* beatmapCallbacksController = nullptr;
 
 bool isTimeSkipping = false;
 
+// Must be renewed each time the game loads
 bool findImportantStuff() {
     #define findObject(name, source)                                        \
     name = source;                                                          \
@@ -62,8 +65,9 @@ bool findImportantStuff() {
     findObject(pauseController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::PauseController*>());
     findObject(noteCutSoundEffectManager, UnityEngine::Object::FindObjectOfType<GlobalNamespace::NoteCutSoundEffectManager*>());
     findObject(gamePause, pauseController->_gamePause);
-    findObject(beatmapObjectManager, MetaCore::Internals::beatmapObjectManager); // Must be renewed each time the game loads
-    findObject(beatmapCallbacksController, MetaCore::Internals::beatmapCallbacksController); // Must be renewed each time the game loads
+    findObject(audioManager, noteCutSoundEffectManager->_audioManager);
+    findObject(beatmapObjectManager, MetaCore::Internals::beatmapObjectManager);
+    findObject(beatmapCallbacksController, MetaCore::Internals::beatmapCallbacksController);
 
     return true;
     #undef getObject
@@ -119,7 +123,7 @@ void manualSeekToAbsolute(float songTime) {
     isTimeSkipping = true;
     bool reverse = songTime < audioTimeSyncController->get_songTime();
 
-    songTime = std::max(0.0f, songTime);
+    songTime = std::max(0.0f, std::min(songTime + audioTimeSyncController->_audioLatency, audioTimeSyncController->_audioSource->get_clip()->get_length() - 0.01f));
     audioTimeSyncController->_startSongTime = songTime;
     audioTimeSyncController->SeekTo(0);
 
@@ -138,6 +142,12 @@ void manualSeekToAbsolute(float songTime) {
     }
 }
 
+void manualSetTimeScale(float timeScale) {
+    audioTimeSyncController->_timeScale = timeScale;
+    audioTimeSyncController->_audioSource->set_pitch(timeScale);
+    audioManager->musicPitch = 1 / timeScale;
+}
+
 void handleAOnPress() {
     if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::AX)) return;
     PaperLogger.debug("A Pressed");
@@ -145,7 +155,8 @@ void handleAOnPress() {
     if(!findImportantStuff()) return;
 
     if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) {
-        manualPause();
+        // manualPause();
+        manualSetTimeScale(audioTimeSyncController->_timeScale * 0.9);
     } else {
         float offset = -3;
         manualSeekToAbsolute(audioTimeSyncController->get_songTime() + offset);
@@ -158,7 +169,8 @@ void handleBOnPress() {
 
     if(!findImportantStuff()) return;
 
-    manualResume();
+    // manualResume();
+    manualSetTimeScale(audioTimeSyncController->_timeScale / 0.9);
 }
 
 // Called at the early stages of game loading
