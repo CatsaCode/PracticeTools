@@ -40,11 +40,15 @@ Configuration &getConfig() {
     return config;
 }
 
-// Stop collisions, switch saber models, etc.
-bool fullPause = true;
+// Config settings
+// Whether or not shortcuts are enabled
+bool isModEnabled = true;
+// Stop collisions, hide saber models, etc.
+bool fullPause = false;
 // Whether to show the three second countdown before resuming
 // bool resumeAnimation = false;
 
+// References
 static UnityW<GlobalNamespace::AudioTimeSyncController> audioTimeSyncController = nullptr;
 static UnityW<GlobalNamespace::PauseController> pauseController = nullptr;
 static UnityW<GlobalNamespace::NoteCutSoundEffectManager> noteCutSoundEffectManager = nullptr;
@@ -53,13 +57,23 @@ static GlobalNamespace::IGamePause* gamePause = nullptr;
 static GlobalNamespace::BeatmapObjectManager* beatmapObjectManager = nullptr;
 static GlobalNamespace::BeatmapCallbacksController* beatmapCallbacksController = nullptr;
 
+// State
+bool isPracticing = false;
+bool areReferencesSafe = false;
 bool isTimeSkipping = false;
 
+
+bool areShortcutsEnabled() {
+    return isModEnabled && isPracticing && areReferencesSafe;
+}
+
 // Must be renewed each time the game loads
-bool findImportantStuff() {
+bool initReferences() {
     #define findObject(name, source)                                        \
     name = source;                                                          \
     if(!name) {PaperLogger.error("Could not find " #name); return false;} 
+
+    areReferencesSafe = false;
 
     findObject(audioTimeSyncController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::AudioTimeSyncController*>());
     findObject(pauseController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::PauseController*>());
@@ -69,13 +83,15 @@ bool findImportantStuff() {
     findObject(beatmapObjectManager, MetaCore::Internals::beatmapObjectManager);
     findObject(beatmapCallbacksController, MetaCore::Internals::beatmapCallbacksController);
 
+    areReferencesSafe = true;
     return true;
+
     #undef getObject
 }
 
 
-MAKE_HOOK_MATCH(NoteCutSoundEffectManager_HandleNoteWasSpawned, &GlobalNamespace::NoteCutSoundEffectManager::HandleNoteWasSpawned, void,
-    GlobalNamespace::NoteCutSoundEffectManager* self, GlobalNamespace::NoteController* noteController
+MAKE_HOOK_MATCH(NoteCutSoundEffectManager_HandleNoteWasSpawned, &GlobalNamespace::NoteCutSoundEffectManager::HandleNoteWasSpawned,
+    void, GlobalNamespace::NoteCutSoundEffectManager* self, GlobalNamespace::NoteController* noteController
 ) {
     if(!isTimeSkipping) return NoteCutSoundEffectManager_HandleNoteWasSpawned(self, noteController);
     
@@ -92,6 +108,7 @@ MAKE_HOOK_MATCH(BeatmapCallbacksController_ManualUpdate, &GlobalNamespace::Beatm
     isTimeSkipping = false;
 }
 
+
 void stopAllNoteCutSoundEffects() {
     for(int i = 0; i < noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->get_activeItems()->get_Count(); i++) {
         auto noteCutSoundEffect = noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->get_activeItems()->get_Item(i);
@@ -107,6 +124,7 @@ void despawnAllObjects() {
         beatmapObject->Dissolve(0);
     }
 }
+
 
 void manualPause() {
     if(fullPause) gamePause->Pause();
@@ -142,17 +160,19 @@ void manualSeekToAbsolute(float songTime) {
     }
 }
 
+// Will likely need to hook and rewrite AudioTimeSyncController::Update to remove any time fixing stuff if I want to try backwards audio
+// I will also need a component or a more active hook to deal with the BeatmapCallbacksController callbacksInTimes
 void manualSetTimeScale(float timeScale) {
     audioTimeSyncController->_timeScale = timeScale;
     audioTimeSyncController->_audioSource->set_pitch(timeScale);
     audioManager->musicPitch = 1 / timeScale;
+    // TODO Adjust speed of NoteCutSoundEffects, or just stop them
 }
 
-void handleAOnPress() {
-    if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::AX)) return;
-    PaperLogger.debug("A Pressed");
 
-    if(!findImportantStuff()) return;
+void handleButtonAOnPress() {
+    if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::AX)) return;
+    if(!areShortcutsEnabled()) return;
 
     if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) {
         // manualPause();
@@ -163,15 +183,28 @@ void handleAOnPress() {
     }
 }
 
-void handleBOnPress() {
+void handleButtonBOnPress() {
     if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::BY)) return;
-    PaperLogger.debug("B Pressed");
-
-    if(!findImportantStuff()) return;
+    if(!areShortcutsEnabled()) return;
 
     // manualResume();
     manualSetTimeScale(audioTimeSyncController->_timeScale / 0.9);
 }
+
+void handleMapStart() {
+    initReferences();
+    isPracticing = true; // TODO Detect if in practice or normal mode
+}
+
+void handleMapUpdate() {
+
+}
+
+void handleMapEnd() {
+    isPracticing = false;
+    areReferencesSafe = false;
+}
+
 
 // Called at the early stages of game loading
 MOD_EXTERN_FUNC void setup(CModInfo *info) noexcept {
@@ -189,8 +222,11 @@ MOD_EXTERN_FUNC void setup(CModInfo *info) noexcept {
 MOD_EXTERN_FUNC void late_load() noexcept {
     il2cpp_functions::Init();
 
-    MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::AX, handleAOnPress);
-    MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::BY, handleBOnPress);
+    MetaCore::Events::AddCallback(MetaCore::Events::MapStarted, handleMapStart);
+    MetaCore::Events::AddCallback(MetaCore::Events::Update, handleMapUpdate);
+    MetaCore::Events::AddCallback(MetaCore::Events::MapEnded, handleMapEnd);
+    MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::AX, handleButtonAOnPress);
+    MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::BY, handleButtonBOnPress);
 
     PaperLogger.info("Installing hooks...");
 
