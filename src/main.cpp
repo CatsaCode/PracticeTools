@@ -171,7 +171,8 @@ void manualSetTimeScale(float timeScale) {
 
 
 void handleButtonAOnPress() {
-    if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::AX)) return;
+    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) return;
+    PaperLogger.debug("Button A");
     if(!areShortcutsEnabled()) return;
 
     if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) {
@@ -184,11 +185,53 @@ void handleButtonAOnPress() {
 }
 
 void handleButtonBOnPress() {
-    if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::BY)) return;
+    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::BY)) return;
+    PaperLogger.debug("Button B");
     if(!areShortcutsEnabled()) return;
 
     // manualResume();
     manualSetTimeScale(audioTimeSyncController->_timeScale / 0.9);
+}
+
+void handleButtonRightThumbstickOnPress() {
+    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Thumbstick)) return;
+    PaperLogger.debug("Button Right Thumbstick");
+    if(!areShortcutsEnabled()) return;
+}
+
+void handleButtonXOnPress() {
+    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::AX)) return;
+    PaperLogger.debug("Button X");
+    if(!areShortcutsEnabled()) return;
+}
+
+void handleButtonYOnPress() {
+    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::BY)) return;
+    PaperLogger.debug("Button Y");
+    if(!areShortcutsEnabled()) return;
+}
+
+void handleButtonLeftThumbstickOnPress() {
+    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Thumbstick)) return;
+    PaperLogger.debug("Button Left Thumbstick");
+    if(!areShortcutsEnabled()) return;
+}
+
+// Handle some controller buttons manually until MetaCore is fixed
+bool isButtonXHeld = false;
+bool isButtonYHeld = false;
+bool isButtonLeftThumbstickHeld = false;
+bool isButtonRightThumbstickHeld = false;
+void checkControllerButtons() {
+    if(!isButtonXHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) handleButtonXOnPress();
+    if(!isButtonYHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::BY)) handleButtonYOnPress();
+    if(!isButtonLeftThumbstickHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Thumbstick)) handleButtonLeftThumbstickOnPress();
+    if(!isButtonRightThumbstickHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Thumbstick)) handleButtonRightThumbstickOnPress();
+
+    isButtonXHeld = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX);
+    isButtonYHeld = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::BY);
+    isButtonLeftThumbstickHeld = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Thumbstick);
+    isButtonRightThumbstickHeld = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Thumbstick);
 }
 
 void handleMapStart() {
@@ -197,7 +240,7 @@ void handleMapStart() {
 }
 
 void handleMapUpdate() {
-
+    checkControllerButtons();
 }
 
 void handleMapEnd() {
@@ -227,6 +270,11 @@ MOD_EXTERN_FUNC void late_load() noexcept {
     MetaCore::Events::AddCallback(MetaCore::Events::MapEnded, handleMapEnd);
     MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::AX, handleButtonAOnPress);
     MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::BY, handleButtonBOnPress);
+    // Handle these controller inputs manually until MetaCore is fixed
+    // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::Thumbstick, handleButtonRightThumbstickOnPress);
+    // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::AX, handleButtonXOnPress);
+    // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::BY, handleButtonYOnPress);
+    // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::Thumbstick, handleButtonLeftThumbstickOnPress);
 
     PaperLogger.info("Installing hooks...");
 
