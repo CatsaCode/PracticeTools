@@ -27,6 +27,7 @@
 #include "GlobalNamespace/BeatmapDataItem.hpp"
 #include "GlobalNamespace/NoteData.hpp"
 #include "GlobalNamespace/NoteController.hpp"
+
 #include <cstdlib>
 
 static modloader::ModInfo modInfo{MOD_ID, VERSION, 0};
@@ -62,6 +63,28 @@ static GlobalNamespace::BeatmapCallbacksController* beatmapCallbacksController =
 bool isPracticing = false;
 bool areReferencesSafe = false;
 bool isTimeSkipping = false;
+
+namespace ControllerCallbacks {
+    std::function<void()> buttonXOnClick = nullptr;
+    std::function<void()> buttonYOnClick = nullptr;
+    std::function<void()> leftThumbstickOnClick = nullptr;
+    std::function<void()> leftTriggerOnClick = nullptr;
+    std::function<void()> leftGripOnClick = nullptr;
+    std::function<void()> leftThumbstickHorizontalOnUpdate = nullptr;
+    std::function<void()> leftThumbstickVerticalOnUpdate = nullptr;
+    std::function<void()> leftTriggerOnUpdate = nullptr;
+    std::function<void()> leftGripOnUpdate = nullptr;
+
+    std::function<void()> buttonAOnClick = nullptr;
+    std::function<void()> buttonBOnClick = nullptr;
+    std::function<void()> rightThumbstickOnClick = nullptr;
+    std::function<void()> rightTriggerOnClick = nullptr;
+    std::function<void()> rightGripOnClick = nullptr;
+    std::function<void()> rightThumbstickHorizontalOnUpdate = nullptr;
+    std::function<void()> rightThumbstickVerticalOnUpdate = nullptr;
+    std::function<void()> rightTriggerOnUpdate = nullptr;
+    std::function<void()> rightGripOnUpdate = nullptr;
+}
 
 
 bool areShortcutsEnabled() {
@@ -142,7 +165,7 @@ void manualSeekToAbsolute(float songTime) {
     isTimeSkipping = true;
     bool reverse = songTime < audioTimeSyncController->get_songTime();
 
-    songTime = std::max(0.0f, std::min(songTime /*+ audioTimeSyncController->_audioLatency*/, audioTimeSyncController->_audioSource->get_clip()->get_length() - 0.01f));
+    songTime = std::max(0.0f, std::min(songTime, audioTimeSyncController->_audioSource->get_clip()->get_length() - 0.01f));
     audioTimeSyncController->_startSongTime = songTime;
     audioTimeSyncController->SeekTo(0);
 
@@ -171,88 +194,76 @@ void manualSetTimeScale(float timeScale) {
 }
 
 
-void handleButtonXOnPress() {
-    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::AX)) return;
-    if(!areShortcutsEnabled()) return;
+// TODO Implement all the controller callback functions
 
-    // Add marker
-}
 
-void handleButtonYOnPress() {
-    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::BY)) return;
-    if(!areShortcutsEnabled()) return;
+struct ControllerState {
+    bool isButtonXHeld = false;
+    bool isButtonYHeld = false;
+    bool isLeftThumbstickHeld = false;
+    bool isLeftTriggerHeld = false;
+    bool isLeftGripHeld = false;
+    bool isButtonAHeld = false;
+    bool isButtonBHeld = false;
+    bool isRightThumbstickHeld = false;
+    bool isRightTriggerHeld = false;
+    bool isRightGripHeld = false;
 
-    // Remove marker
-}
+    float leftThumbstickHorizontalInput = 0;
+    float leftThumbstickVerticalInput = 0;
+    float leftTriggerInput = 0;
+    float leftGripInput = 0;
+    float rightThumbstickHorizontalInput = 0;
+    float rightThumbstickVerticalInput = 0;
+    float rightTriggerInput = 0;
+    float rightGripInput = 0;
 
-void handleLeftThumbstickOnPress() {
-    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Thumbstick)) return;
-    if(!areShortcutsEnabled()) return;
+    void update() {
+        isButtonXHeld         = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX);
+        isButtonYHeld         = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::BY);
+        isLeftThumbstickHeld  = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Thumbstick);
+        isLeftTriggerHeld     = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Trigger);
+        isLeftGripHeld        = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Grip);
+        isButtonAHeld         = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::AX);
+        isButtonBHeld         = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::BY);
+        isRightThumbstickHeld = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Thumbstick);
+        isRightTriggerHeld    = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Trigger);
+        isRightGripHeld       = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Grip);
 
-    manualSetTimeScale(1);
-}
-
-void handleLeftThumbstickOnUpdate() {
-    if(!areShortcutsEnabled()) return;
-
-    float input = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left, MetaCore::Input::Axes::ThumbstickVertical);
-    float scaleFactor = 1 + abs(input) * 0.01;
-    if(input < 0) scaleFactor = 1 / scaleFactor;
-    float timeScale = audioTimeSyncController->_timeScale;
-    manualSetTimeScale(timeScale * scaleFactor);
-}
-
-void handleButtonAOnPress() {
-    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) return;
-    if(!areShortcutsEnabled()) return;
-
-    // Previous marker
-}
-
-void handleButtonBOnPress() {
-    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::BY)) return;
-    if(!areShortcutsEnabled()) return;
-
-    // Next marker
-}
-
-void handleRightThumbstickOnPress() {
-    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Thumbstick)) return;
-    if(!areShortcutsEnabled()) return;
-    
-    if(audioTimeSyncController->get_state() == GlobalNamespace::AudioTimeSyncController::State::Playing) {
-        manualPause();
-    } else {
-        manualResume();
+        leftThumbstickHorizontalInput  = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left, MetaCore::Input::Axes::ThumbstickHorizontal);
+        leftThumbstickVerticalInput    = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left, MetaCore::Input::Axes::ThumbstickVertical);
+        leftTriggerInput               = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left, MetaCore::Input::Axes::TriggerStrength);
+        leftGripInput                  = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left, MetaCore::Input::Axes::GripStrength);
+        rightThumbstickHorizontalInput = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left, MetaCore::Input::Axes::ThumbstickHorizontal);
+        rightThumbstickVerticalInput   = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left, MetaCore::Input::Axes::ThumbstickVertical);
+        rightTriggerInput              = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left, MetaCore::Input::Axes::TriggerStrength);
+        rightGripInput                 = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left, MetaCore::Input::Axes::GripStrength);
     }
-}
+};
+ControllerState controllerState;
+void handleControllerInputs() {
+    ControllerState oldControllerState = controllerState;
+    controllerState.update();
 
-void handleRightThumbstickOnUpdate() {
-    if(!areShortcutsEnabled()) return;
+    if(!oldControllerState.isButtonXHeld         && controllerState.isButtonXHeld         && ControllerCallbacks::buttonXOnClick)         ControllerCallbacks::buttonXOnClick();
+    if(!oldControllerState.isButtonYHeld         && controllerState.isButtonYHeld         && ControllerCallbacks::buttonYOnClick)         ControllerCallbacks::buttonYOnClick();
+    if(!oldControllerState.isLeftThumbstickHeld  && controllerState.isLeftThumbstickHeld  && ControllerCallbacks::leftThumbstickOnClick)  ControllerCallbacks::leftThumbstickOnClick();
+    if(!oldControllerState.isLeftTriggerHeld     && controllerState.isLeftTriggerHeld     && ControllerCallbacks::leftTriggerOnClick)     ControllerCallbacks::leftTriggerOnClick();
+    if(!oldControllerState.isLeftGripHeld        && controllerState.isLeftGripHeld        && ControllerCallbacks::leftGripOnClick)        ControllerCallbacks::leftGripOnClick();
+    if(!oldControllerState.isButtonAHeld         && controllerState.isButtonAHeld         && ControllerCallbacks::buttonAOnClick)         ControllerCallbacks::buttonAOnClick();
+    if(!oldControllerState.isButtonBHeld         && controllerState.isButtonBHeld         && ControllerCallbacks::buttonBOnClick)         ControllerCallbacks::buttonBOnClick();
+    if(!oldControllerState.isRightThumbstickHeld && controllerState.isRightThumbstickHeld && ControllerCallbacks::rightThumbstickOnClick) ControllerCallbacks::rightThumbstickOnClick();
+    if(!oldControllerState.isRightTriggerHeld    && controllerState.isRightTriggerHeld    && ControllerCallbacks::rightTriggerOnClick)    ControllerCallbacks::rightTriggerOnClick();
+    if(!oldControllerState.isRightGripHeld       && controllerState.isRightGripHeld       && ControllerCallbacks::rightGripOnClick)       ControllerCallbacks::rightGripOnClick();
 
-    // Time skip (smoothly)
-    float input = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Right, MetaCore::Input::Axes::ThumbstickVertical);
-    if(abs(input) < 0.1) return;
-    float songTime = audioTimeSyncController->get_songTime() + input * 0.3;
-    manualSeekToAbsolute(songTime);
-}
-
-
-// Handle some controller buttons manually until MetaCore is fixed
-bool isButtonXHeld = false;
-bool isButtonYHeld = false;
-bool isButtonLeftThumbstickHeld = false;
-bool isButtonRightThumbstickHeld = false;
-void checkControllerButtons() {
-    if(!isButtonXHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) handleButtonXOnPress();
-    if(!isButtonYHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::BY)) handleButtonYOnPress();
-    if(!isButtonLeftThumbstickHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Thumbstick)) handleLeftThumbstickOnPress();
-    if(!isButtonRightThumbstickHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Thumbstick)) handleRightThumbstickOnPress();
-
-    isButtonXHeld = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX);
-    isButtonYHeld = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::BY);
-    isButtonLeftThumbstickHeld = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Thumbstick);
-    isButtonRightThumbstickHeld = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Thumbstick);
+    if(ControllerCallbacks::leftThumbstickHorizontalOnUpdate)  ControllerCallbacks::leftThumbstickHorizontalOnUpdate();
+    if(ControllerCallbacks::leftThumbstickVerticalOnUpdate)    ControllerCallbacks::leftThumbstickVerticalOnUpdate();
+    if(ControllerCallbacks::leftTriggerOnUpdate)               ControllerCallbacks::leftTriggerOnUpdate();
+    if(ControllerCallbacks::leftGripOnUpdate)                  ControllerCallbacks::leftGripOnUpdate();
+    if(ControllerCallbacks::rightThumbstickHorizontalOnUpdate) ControllerCallbacks::rightThumbstickHorizontalOnUpdate();
+    if(ControllerCallbacks::rightThumbstickVerticalOnUpdate)   ControllerCallbacks::rightThumbstickVerticalOnUpdate();
+    if(ControllerCallbacks::rightTriggerOnUpdate)              ControllerCallbacks::rightTriggerOnUpdate();
+    if(ControllerCallbacks::rightGripOnUpdate)                 ControllerCallbacks::rightGripOnUpdate();
 }
 
 void handleMapStart() {
@@ -261,9 +272,8 @@ void handleMapStart() {
 }
 
 void handleMapUpdate() {
-    checkControllerButtons();
-    handleLeftThumbstickOnUpdate();
-    handleRightThumbstickOnUpdate();
+    if(!areShortcutsEnabled()) return;
+    handleControllerInputs();
 }
 
 void handleMapEnd() {
@@ -291,13 +301,6 @@ MOD_EXTERN_FUNC void late_load() noexcept {
     MetaCore::Events::AddCallback(MetaCore::Events::MapStarted, handleMapStart);
     MetaCore::Events::AddCallback(MetaCore::Events::Update, handleMapUpdate);
     MetaCore::Events::AddCallback(MetaCore::Events::MapEnded, handleMapEnd);
-    MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::AX, handleButtonAOnPress);
-    MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::BY, handleButtonBOnPress);
-    // Handle these controller inputs manually until MetaCore is fixed
-    // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::Thumbstick, handleRightThumbstickOnPress);
-    // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::AX, handleButtonXOnPress);
-    // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::BY, handleButtonYOnPress);
-    // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::Thumbstick, handleLeftThumbstickOnPress);
 
     PaperLogger.info("Installing hooks...");
 
