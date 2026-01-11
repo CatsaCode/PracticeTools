@@ -27,6 +27,7 @@
 #include "GlobalNamespace/BeatmapDataItem.hpp"
 #include "GlobalNamespace/NoteData.hpp"
 #include "GlobalNamespace/NoteController.hpp"
+#include <cstdlib>
 
 static modloader::ModInfo modInfo{MOD_ID, VERSION, 0};
 // Stores the ID and version of our mod, and is sent to
@@ -141,7 +142,7 @@ void manualSeekToAbsolute(float songTime) {
     isTimeSkipping = true;
     bool reverse = songTime < audioTimeSyncController->get_songTime();
 
-    songTime = std::max(0.0f, std::min(songTime + audioTimeSyncController->_audioLatency, audioTimeSyncController->_audioSource->get_clip()->get_length() - 0.01f));
+    songTime = std::max(0.0f, std::min(songTime /*+ audioTimeSyncController->_audioLatency*/, audioTimeSyncController->_audioSource->get_clip()->get_length() - 0.01f));
     audioTimeSyncController->_startSongTime = songTime;
     audioTimeSyncController->SeekTo(0);
 
@@ -170,52 +171,72 @@ void manualSetTimeScale(float timeScale) {
 }
 
 
-void handleButtonAOnPress() {
-    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) return;
-    PaperLogger.debug("Button A");
-    if(!areShortcutsEnabled()) return;
-
-    if(!MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) {
-        // manualPause();
-        manualSetTimeScale(audioTimeSyncController->_timeScale * 0.9);
-    } else {
-        float offset = -3;
-        manualSeekToAbsolute(audioTimeSyncController->get_songTime() + offset);
-    }
-}
-
-void handleButtonBOnPress() {
-    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::BY)) return;
-    PaperLogger.debug("Button B");
-    if(!areShortcutsEnabled()) return;
-
-    // manualResume();
-    manualSetTimeScale(audioTimeSyncController->_timeScale / 0.9);
-}
-
-void handleButtonRightThumbstickOnPress() {
-    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Thumbstick)) return;
-    PaperLogger.debug("Button Right Thumbstick");
-    if(!areShortcutsEnabled()) return;
-}
-
 void handleButtonXOnPress() {
     if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::AX)) return;
-    PaperLogger.debug("Button X");
     if(!areShortcutsEnabled()) return;
+
+    // Add marker
 }
 
 void handleButtonYOnPress() {
     if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::BY)) return;
-    PaperLogger.debug("Button Y");
     if(!areShortcutsEnabled()) return;
+
+    // Remove marker
 }
 
-void handleButtonLeftThumbstickOnPress() {
+void handleLeftThumbstickOnPress() {
     if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Thumbstick)) return;
-    PaperLogger.debug("Button Left Thumbstick");
     if(!areShortcutsEnabled()) return;
+
+    manualSetTimeScale(1);
 }
+
+void handleLeftThumbstickOnUpdate() {
+    if(!areShortcutsEnabled()) return;
+
+    float input = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left, MetaCore::Input::Axes::ThumbstickVertical);
+    float scaleFactor = 1 + abs(input) * 0.01;
+    if(input < 0) scaleFactor = 1 / scaleFactor;
+    float timeScale = audioTimeSyncController->_timeScale;
+    manualSetTimeScale(timeScale * scaleFactor);
+}
+
+void handleButtonAOnPress() {
+    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) return;
+    if(!areShortcutsEnabled()) return;
+
+    // Previous marker
+}
+
+void handleButtonBOnPress() {
+    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::BY)) return;
+    if(!areShortcutsEnabled()) return;
+
+    // Next marker
+}
+
+void handleRightThumbstickOnPress() {
+    if(MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Thumbstick)) return;
+    if(!areShortcutsEnabled()) return;
+    
+    if(audioTimeSyncController->get_state() == GlobalNamespace::AudioTimeSyncController::State::Playing) {
+        manualPause();
+    } else {
+        manualResume();
+    }
+}
+
+void handleRightThumbstickOnUpdate() {
+    if(!areShortcutsEnabled()) return;
+
+    // Time skip (smoothly)
+    float input = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Right, MetaCore::Input::Axes::ThumbstickVertical);
+    if(abs(input) < 0.1) return;
+    float songTime = audioTimeSyncController->get_songTime() + input * 0.3;
+    manualSeekToAbsolute(songTime);
+}
+
 
 // Handle some controller buttons manually until MetaCore is fixed
 bool isButtonXHeld = false;
@@ -225,8 +246,8 @@ bool isButtonRightThumbstickHeld = false;
 void checkControllerButtons() {
     if(!isButtonXHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX)) handleButtonXOnPress();
     if(!isButtonYHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::BY)) handleButtonYOnPress();
-    if(!isButtonLeftThumbstickHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Thumbstick)) handleButtonLeftThumbstickOnPress();
-    if(!isButtonRightThumbstickHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Thumbstick)) handleButtonRightThumbstickOnPress();
+    if(!isButtonLeftThumbstickHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::Thumbstick)) handleLeftThumbstickOnPress();
+    if(!isButtonRightThumbstickHeld && MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Thumbstick)) handleRightThumbstickOnPress();
 
     isButtonXHeld = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::AX);
     isButtonYHeld = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left, MetaCore::Input::Buttons::BY);
@@ -241,6 +262,8 @@ void handleMapStart() {
 
 void handleMapUpdate() {
     checkControllerButtons();
+    handleLeftThumbstickOnUpdate();
+    handleRightThumbstickOnUpdate();
 }
 
 void handleMapEnd() {
@@ -271,10 +294,10 @@ MOD_EXTERN_FUNC void late_load() noexcept {
     MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::AX, handleButtonAOnPress);
     MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::BY, handleButtonBOnPress);
     // Handle these controller inputs manually until MetaCore is fixed
-    // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::Thumbstick, handleButtonRightThumbstickOnPress);
+    // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::Thumbstick, handleRightThumbstickOnPress);
     // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::AX, handleButtonXOnPress);
     // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::BY, handleButtonYOnPress);
-    // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::Thumbstick, handleButtonLeftThumbstickOnPress);
+    // MetaCore::Events::AddCallback(MetaCore::Input::PressEvents, MetaCore::Input::Buttons::Thumbstick, handleLeftThumbstickOnPress);
 
     PaperLogger.info("Installing hooks...");
 
