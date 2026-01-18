@@ -5,6 +5,7 @@
 #include "metacore/shared/input.hpp"
 #include "metacore/shared/events.hpp"
 #include "metacore/shared/internals.hpp"
+#include "metacore/shared/game.hpp"
 #include "GlobalNamespace/AudioTimeSyncController.hpp"
 #include "GlobalNamespace/GameSongController.hpp"
 #include "GlobalNamespace/PauseController.hpp"
@@ -124,6 +125,14 @@ bool initReferences() {
 }
 
 
+MAKE_HOOK_MATCH(GameplayCoreInstaller_InstallBindings, &GlobalNamespace::GameplayCoreInstaller::InstallBindings,
+    void, GlobalNamespace::GameplayCoreInstaller* self
+) {
+    GameplayCoreInstaller_InstallBindings(self);
+    isPracticing = self->_sceneSetupData->___practiceSettings != nullptr; // ->practiceSettings not defined
+    MetaCore::Game::SetScoreSubmission(MOD_ID, !(isModEnabled && isPracticing));
+}
+
 MAKE_HOOK_MATCH(NoteCutSoundEffectManager_HandleNoteWasSpawned, &GlobalNamespace::NoteCutSoundEffectManager::HandleNoteWasSpawned,
     void, GlobalNamespace::NoteCutSoundEffectManager* self, GlobalNamespace::NoteController* noteController
 ) {
@@ -140,13 +149,6 @@ MAKE_HOOK_MATCH(BeatmapCallbacksController_ManualUpdate, &GlobalNamespace::Beatm
 ) {
     BeatmapCallbacksController_ManualUpdate(self, songTime);
     isTimeSkipping = false;
-}
-
-MAKE_HOOK_MATCH(GameplayCoreInstaller_InstallBindings, &GlobalNamespace::GameplayCoreInstaller::InstallBindings,
-    void, GlobalNamespace::GameplayCoreInstaller* self
-) {
-    GameplayCoreInstaller_InstallBindings(self);
-    isPracticing = self->_sceneSetupData->___practiceSettings != nullptr; // ->practiceSettings not defined
 }
 
 
@@ -408,9 +410,9 @@ MOD_EXTERN_FUNC void late_load() noexcept {
 
     PaperLogger.info("Installing hooks...");
 
+    INSTALL_HOOK(PaperLogger, GameplayCoreInstaller_InstallBindings);
     INSTALL_HOOK(PaperLogger, NoteCutSoundEffectManager_HandleNoteWasSpawned);
     INSTALL_HOOK(PaperLogger, BeatmapCallbacksController_ManualUpdate);
-    INSTALL_HOOK(PaperLogger, GameplayCoreInstaller_InstallBindings);
 
     PaperLogger.info("Installed all hooks!");
 }
