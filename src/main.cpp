@@ -27,6 +27,7 @@
 #include "GlobalNamespace/BeatmapDataItem.hpp"
 #include "GlobalNamespace/NoteData.hpp"
 #include "GlobalNamespace/NoteController.hpp"
+#include "GlobalNamespace/GameplayCoreInstaller.hpp"
 
 #include <cstdlib>
 #include <unordered_map>
@@ -139,6 +140,13 @@ MAKE_HOOK_MATCH(BeatmapCallbacksController_ManualUpdate, &GlobalNamespace::Beatm
 ) {
     BeatmapCallbacksController_ManualUpdate(self, songTime);
     isTimeSkipping = false;
+}
+
+MAKE_HOOK_MATCH(GameplayCoreInstaller_InstallBindings, &GlobalNamespace::GameplayCoreInstaller::InstallBindings,
+    void, GlobalNamespace::GameplayCoreInstaller* self
+) {
+    GameplayCoreInstaller_InstallBindings(self);
+    isPracticing = self->_sceneSetupData->___practiceSettings != nullptr; // ->practiceSettings not defined
 }
 
 
@@ -365,7 +373,6 @@ void handleControllerInputs() {
 
 void handleMapStart() {
     initReferences();
-    isPracticing = true; // TODO Detect if in practice or normal mode
 }
 
 void handleMapUpdate() {
@@ -403,6 +410,7 @@ MOD_EXTERN_FUNC void late_load() noexcept {
 
     INSTALL_HOOK(PaperLogger, NoteCutSoundEffectManager_HandleNoteWasSpawned);
     INSTALL_HOOK(PaperLogger, BeatmapCallbacksController_ManualUpdate);
+    INSTALL_HOOK(PaperLogger, GameplayCoreInstaller_InstallBindings);
 
     PaperLogger.info("Installed all hooks!");
 }
