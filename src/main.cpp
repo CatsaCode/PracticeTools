@@ -29,6 +29,7 @@
 #include "GlobalNamespace/NoteData.hpp"
 #include "GlobalNamespace/NoteController.hpp"
 #include "GlobalNamespace/GameplayCoreInstaller.hpp"
+#include "UnityEngine/Time.hpp"
 
 #include <cstdlib>
 #include <unordered_map>
@@ -46,13 +47,22 @@ Configuration &getConfig() {
 }
 
 // Config settings
-// Whether or not shortcuts are enabled
-bool isModEnabled = true;
-// Stop collisions, hide saber models, etc.
-bool fullPause = false;
-// Whether to show the three second countdown before resuming
-// bool resumeAnimation = false;
-float deadband = 0.1f;
+namespace Config {
+    // Whether or not shortcuts are enabled
+    bool isModEnabled = true;
+    // Stop collisions, hide saber models, etc.
+    bool fullPause = false;
+    // Whether to show the three second countdown before resuming
+    // bool resumeAnimation = false;
+    // How many seconds to skip (per sensitivity)
+    float skipDuration = 3;
+    // What percentage to increase speed by (per sensitivity)
+    float speedChangePercentage = 10;
+    // Minimum input before values are accepted
+    float deadband = 0.1f;
+    // How many 1 / seconds held inputs will take to match click inputs
+    float sensitivity = 1;
+}
 
 // References
 static UnityW<GlobalNamespace::AudioTimeSyncController> audioTimeSyncController = nullptr;
@@ -70,36 +80,36 @@ bool isTimeSkipping = false;
 
 // TODO Move to mod config
 namespace ControllerCallbacks {
-    std::string buttonXOnClick = "";
-    std::string buttonYOnClick = "";
-    std::string leftThumbstickOnClick = "";
+    std::string buttonXOnClick = "Decrease Speed";
+    std::string buttonYOnClick = "Increase Speed";
+    std::string leftThumbstickOnClick = "Reset Speed";
     std::string leftTriggerOnClick = "";
     std::string leftGripOnClick = "";
     std::string buttonXOnHold = "";
     std::string buttonYOnHold = "";
     std::string leftThumbstickOnHold = "";
-    std::string leftTriggerOnHold = "";
-    std::string leftGripOnHold = "";
+    std::string leftTriggerOnHold = "Decrease Speed";
+    std::string leftGripOnHold = "Skip Backward";
     std::string leftThumbstickHorizontalOnUpdate = "";
     std::string leftThumbstickVerticalOnUpdate = "";
 
-    std::string buttonAOnClick = "";
-    std::string buttonBOnClick = "";
-    std::string rightThumbstickOnClick = "";
+    std::string buttonAOnClick = "Skip Backward";
+    std::string buttonBOnClick = "Skip Forward";
+    std::string rightThumbstickOnClick = "Pause / Play";
     std::string rightTriggerOnClick = "";
     std::string rightGripOnClick = "";
     std::string buttonAOnHold = "";
     std::string buttonBOnHold = "";
     std::string rightThumbstickOnHold = "";
-    std::string rightTriggerOnHold = "";
-    std::string rightGripOnHold = "";
+    std::string rightTriggerOnHold = "Increase Speed";
+    std::string rightGripOnHold = "Skip Forward";
     std::string rightThumbstickHorizontalOnUpdate = "";
     std::string rightThumbstickVerticalOnUpdate = "";
 }
 
 
 bool areShortcutsEnabled() {
-    return isModEnabled && isPracticing && areReferencesSafe;
+    return Config::isModEnabled && isPracticing && areReferencesSafe;
 }
 
 // Must be renewed each time the game loads
@@ -130,7 +140,7 @@ MAKE_HOOK_MATCH(GameplayCoreInstaller_InstallBindings, &GlobalNamespace::Gamepla
 ) {
     GameplayCoreInstaller_InstallBindings(self);
     isPracticing = self->_sceneSetupData->___practiceSettings != nullptr; // ->practiceSettings not defined
-    MetaCore::Game::SetScoreSubmission(MOD_ID, !(isModEnabled && isPracticing));
+    MetaCore::Game::SetScoreSubmission(MOD_ID, !(Config::isModEnabled && isPracticing));
 }
 
 MAKE_HOOK_MATCH(NoteCutSoundEffectManager_HandleNoteWasSpawned, &GlobalNamespace::NoteCutSoundEffectManager::HandleNoteWasSpawned,
@@ -170,13 +180,13 @@ void despawnAllObjects() {
 
 
 void manualPause() {
-    if(fullPause) gamePause->Pause();
+    if(Config::fullPause) gamePause->Pause();
     else audioTimeSyncController->Pause();
     stopAllNoteCutSoundEffects();
 }
 
 void manualResume() {
-    if(fullPause) gamePause->Resume();
+    if(Config::fullPause) gamePause->Resume();
     else audioTimeSyncController->Resume();
 }
 
@@ -220,22 +230,28 @@ namespace ControllerFunctions {
 
     FunctionList<void()> clickFunctions = {
         {"Skip Forward", [](){
-            PaperLogger.debug("(Click) Skip Forward");
+            float offset = Config::skipDuration;
+            manualSeekToAbsolute(audioTimeSyncController->get_songTime() + offset);
         }},
         {"Skip Backward", [](){
-            PaperLogger.debug("(Click) Skip Backward");
+            float offset = -Config::skipDuration;
+            manualSeekToAbsolute(audioTimeSyncController->get_songTime() + offset);
         }},
         {"Increase Speed", [](){
-            PaperLogger.debug("(Click) Increase Speed");
+            float scaleFactor = 1 + Config::speedChangePercentage / 100;
+            manualSetTimeScale(audioTimeSyncController->get_timeScale() * scaleFactor);
         }},
         {"Decrease Speed", [](){
-            PaperLogger.debug("(Click) Decrease Speed");
+            float scaleFactor = 1 + Config::speedChangePercentage / 100;
+            manualSetTimeScale(audioTimeSyncController->get_timeScale() / scaleFactor);
         }},
         {"Reset Speed", [](){
-            PaperLogger.debug("(Click) Reset Speed");
+            manualSetTimeScale(1);
         }},
         {"Pause / Play", [](){
-            PaperLogger.debug("(Click) Pause / Play");
+            if(audioTimeSyncController->get_state() == GlobalNamespace::AudioTimeSyncController::State::Playing) 
+                manualPause();
+            else manualResume();
         }},
         {"Add Marker", [](){
             PaperLogger.debug("(Click) Add Marker");
@@ -253,31 +269,32 @@ namespace ControllerFunctions {
 
     FunctionList<void(float)> holdFunctions = {
         {"Skip Forward", [](float input){
-            if(input < deadband) return;
-            PaperLogger.debug("(Hold) Skip Forward: {}", input);
+            float offset = Config::skipDuration * input * Config::sensitivity * UnityEngine::Time::get_deltaTime();
+            manualSeekToAbsolute(audioTimeSyncController->get_songTime() + offset);
         }},
         {"Skip Backward", [](float input){
-            if(input < deadband) return;
-            PaperLogger.debug("(Hold) Skip Backward: {}", input);
+            float offset = -Config::skipDuration * input * Config::sensitivity * UnityEngine::Time::get_deltaTime();
+            manualSeekToAbsolute(audioTimeSyncController->get_songTime() + offset);
         }},
         {"Increase Speed", [](float input){
-            if(input < deadband) return;
-            PaperLogger.debug("(Hold) Increase Speed: {}", input);
+            float scaleFactor = pow(1 + Config::speedChangePercentage / 100 * input, UnityEngine::Time::get_deltaTime());
+            manualSetTimeScale(audioTimeSyncController->get_timeScale() * scaleFactor);
         }},
         {"Decrease Speed", [](float input){
-            if(input < deadband) return;
-            PaperLogger.debug("(Hold) Decrease Speed: {}", input);
+            float scaleFactor = pow(1 + Config::speedChangePercentage / 100 * input, UnityEngine::Time::get_deltaTime());
+            manualSetTimeScale(audioTimeSyncController->get_timeScale() / scaleFactor);
         }}
     };
 
     FunctionList<void(float)> thumbstickFunctions = {
         {"Skip", [](float input){
-            if(abs(input) < deadband) return;
-            PaperLogger.debug("(Thumbstick) Skip: {}", input);
+            float offset = Config::skipDuration * input * Config::sensitivity * UnityEngine::Time::get_deltaTime();
+            manualSeekToAbsolute(audioTimeSyncController->get_songTime() + offset);
         }},
         {"Speed", [](float input){
-            if(abs(input) < deadband) return;
-            PaperLogger.debug("(Thumbstick) Speed: {}", input);
+            float scaleFactor = pow(1 + Config::speedChangePercentage / 100 * abs(input), UnityEngine::Time::get_deltaTime());
+            if(input < 0) scaleFactor = 1 / scaleFactor;
+            manualSetTimeScale(audioTimeSyncController->get_timeScale() * scaleFactor);
         }}
     };
 
@@ -290,6 +307,7 @@ namespace ControllerFunctions {
     template <typename T>
     void invoke(FunctionList<void(T)>& list, std::string_view name, T input){
         if(name.empty()) return;
+        if(abs(input) < Config::deadband) return;
         if(!list.contains(name)) {PaperLogger.error("Could not invoke function: '{}'", name); return;}
         list[name](input);
     }
