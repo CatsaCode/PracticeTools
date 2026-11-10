@@ -1,27 +1,30 @@
 #pragma once
 
-#include "main.hpp"
-#include "config.hpp"
-
-#include <unordered_map>
-#include <string_view>
-#include <functional>
-
 namespace PracticeTools::ControllerFunctions {
-    template <typename T>
-    using FunctionList = std::unordered_map<std::string_view, std::function<T>>;
 
-    extern FunctionList<void()> clickFunctions;
-    extern FunctionList<void(float)> holdFunctions;
-    extern FunctionList<void(float)> thumbstickFunctions;
+    enum class ClickFunction {
+        None,
+        SkipForward, SkipBackward,
+        IncreaseSpeed, DecreaseSpeed, ResetSpeed,
+        PausePlay,
+        AddMarker, RemoveMarker,
+        NextMarker, PreviousMarker
+    };
 
-    void invoke(FunctionList<void()>& list, std::string_view name);
+    enum class HoldFunction {
+        None,
+        SkipForward, SkipBackward,
+        IncreaseSpeed, DecreaseSpeed,
+    };
 
-    template <typename T>
-    void invoke(FunctionList<void(T)>& list, std::string_view name, T input) {
-        if(name.empty()) return;
-        if(abs(input) < getPracticeToolsConfig().deadband.GetValue()) return;
-        if(!list.contains(name)) {PaperLogger.error("Could not invoke function: '{}'", name); return;}
-        list[name](input);
-    }
+    enum class ThumbstickFunction {
+        None,
+        TimeSkip,
+        AdjustSpeed
+    };
+
+    void execute(ClickFunction function);
+    void execute(HoldFunction function, float input);
+    void execute(ThumbstickFunction function, float input);
+
 }

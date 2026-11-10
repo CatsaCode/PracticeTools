@@ -1,5 +1,7 @@
 #pragma once
 
+#include "controllerFunctions.hpp"
+
 #include "config-utils/shared/config-utils.hpp"
 
 DECLARE_CONFIG(PracticeToolsConfig) {
@@ -13,29 +15,33 @@ DECLARE_CONFIG(PracticeToolsConfig) {
 
 // TODO Actual config and enums
 namespace PracticeTools::ControllerCallbacks {
-    static std::string buttonXOnClick = "Decrease Speed";
-    static std::string buttonYOnClick = "Increase Speed";
-    static std::string leftThumbstickOnClick = "Reset Speed";
-    static std::string leftTriggerOnClick = "";
-    static std::string leftGripOnClick = "";
-    static std::string buttonXOnHold = "";
-    static std::string buttonYOnHold = "";
-    static std::string leftThumbstickOnHold = "";
-    static std::string leftTriggerOnHold = "Decrease Speed";
-    static std::string leftGripOnHold = "Skip Backward";
-    static std::string leftThumbstickHorizontalOnUpdate = "";
-    static std::string leftThumbstickVerticalOnUpdate = "";
+    using CF = ControllerFunctions::ClickFunction;
+    using HF = ControllerFunctions::HoldFunction;
+    using TF = ControllerFunctions::ThumbstickFunction;
 
-    static std::string buttonAOnClick = "Skip Backward";
-    static std::string buttonBOnClick = "Skip Forward";
-    static std::string rightThumbstickOnClick = "Pause / Play";
-    static std::string rightTriggerOnClick = "";
-    static std::string rightGripOnClick = "";
-    static std::string buttonAOnHold = "";
-    static std::string buttonBOnHold = "";
-    static std::string rightThumbstickOnHold = "";
-    static std::string rightTriggerOnHold = "Increase Speed";
-    static std::string rightGripOnHold = "Skip Forward";
-    static std::string rightThumbstickHorizontalOnUpdate = "";
-    static std::string rightThumbstickVerticalOnUpdate = "";
+    static CF buttonXOnClick =                    CF::DecreaseSpeed;
+    static CF buttonYOnClick =                    CF::IncreaseSpeed;
+    static CF leftThumbstickOnClick =             CF::ResetSpeed;
+    static CF leftTriggerOnClick =                CF::None;
+    static CF leftGripOnClick =                   CF::None;
+    static HF buttonXOnHold =                     HF::None;
+    static HF buttonYOnHold =                     HF::None;
+    static HF leftThumbstickOnHold =              HF::None;
+    static HF leftTriggerOnHold =                 HF::DecreaseSpeed;
+    static HF leftGripOnHold =                    HF::SkipBackward;
+    static TF leftThumbstickHorizontalOnUpdate =  TF::None;
+    static TF leftThumbstickVerticalOnUpdate =    TF::None;
+
+    static CF buttonAOnClick =                    CF::SkipBackward;
+    static CF buttonBOnClick =                    CF::SkipForward;
+    static CF rightThumbstickOnClick =            CF::PausePlay;
+    static CF rightTriggerOnClick =               CF::None;
+    static CF rightGripOnClick =                  CF::None;
+    static HF buttonAOnHold =                     HF::None;
+    static HF buttonBOnHold =                     HF::None;
+    static HF rightThumbstickOnHold =             HF::None;
+    static HF rightTriggerOnHold =                HF::IncreaseSpeed;
+    static HF rightGripOnHold =                   HF::SkipForward;
+    static TF rightThumbstickHorizontalOnUpdate = TF::None;
+    static TF rightThumbstickVerticalOnUpdate =   TF::None;
 }

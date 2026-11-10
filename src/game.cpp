@@ -47,7 +47,6 @@ namespace PracticeTools::Game {
         return getPracticeToolsConfig().enabled.GetValue() && isPracticing && areReferencesSafe;
     }
 
-    // Must be renewed each time the game loads
     bool initReferences() {
         #define findObject(name, source)                                        \
         name = source;                                                          \
@@ -74,6 +73,7 @@ namespace PracticeTools::Game {
         isPracticing = false;
         isTimeSkipping = false;
     }
+
 
 
     MAKE_HOOK_MATCH(GameplayCoreInstaller_InstallBindings, &GlobalNamespace::GameplayCoreInstaller::InstallBindings,
@@ -109,6 +109,7 @@ namespace PracticeTools::Game {
     }
 
 
+
     void stopAllNoteCutSoundEffects() {
         for(int i = 0; i < noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->get_activeItems()->get_Count(); i++) {
             auto noteCutSoundEffect = noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->get_activeItems()->get_Item(i);
@@ -124,6 +125,7 @@ namespace PracticeTools::Game {
             beatmapObject->Dissolve(0);
         }
     }
+
 
 
     void manualPause() {

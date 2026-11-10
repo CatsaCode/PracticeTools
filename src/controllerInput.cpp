@@ -1,4 +1,5 @@
 #include "main.hpp"
+#include "config.hpp"
 
 #include "controllerFunctions.hpp"
 
@@ -55,33 +56,33 @@ namespace PracticeTools::ControllerInput {
         ControllerState oldControllerState = controllerState;
         controllerState.update();
 
-        if(!oldControllerState.isButtonXHeld         && controllerState.isButtonXHeld)         ControllerFunctions::invoke(ControllerFunctions::clickFunctions, ControllerCallbacks::buttonXOnClick);
-        if(!oldControllerState.isButtonYHeld         && controllerState.isButtonYHeld)         ControllerFunctions::invoke(ControllerFunctions::clickFunctions, ControllerCallbacks::buttonYOnClick);
-        if(!oldControllerState.isLeftThumbstickHeld  && controllerState.isLeftThumbstickHeld)  ControllerFunctions::invoke(ControllerFunctions::clickFunctions, ControllerCallbacks::leftThumbstickOnClick);
-        if(!oldControllerState.isLeftTriggerHeld     && controllerState.isLeftTriggerHeld)     ControllerFunctions::invoke(ControllerFunctions::clickFunctions, ControllerCallbacks::leftTriggerOnClick);
-        if(!oldControllerState.isLeftGripHeld        && controllerState.isLeftGripHeld)        ControllerFunctions::invoke(ControllerFunctions::clickFunctions, ControllerCallbacks::leftGripOnClick);
-        if(!oldControllerState.isButtonAHeld         && controllerState.isButtonAHeld)         ControllerFunctions::invoke(ControllerFunctions::clickFunctions, ControllerCallbacks::buttonAOnClick);
-        if(!oldControllerState.isButtonBHeld         && controllerState.isButtonBHeld)         ControllerFunctions::invoke(ControllerFunctions::clickFunctions, ControllerCallbacks::buttonBOnClick);
-        if(!oldControllerState.isRightThumbstickHeld && controllerState.isRightThumbstickHeld) ControllerFunctions::invoke(ControllerFunctions::clickFunctions, ControllerCallbacks::rightThumbstickOnClick);
-        if(!oldControllerState.isRightTriggerHeld    && controllerState.isRightTriggerHeld)    ControllerFunctions::invoke(ControllerFunctions::clickFunctions, ControllerCallbacks::rightTriggerOnClick);
-        if(!oldControllerState.isRightGripHeld       && controllerState.isRightGripHeld)       ControllerFunctions::invoke(ControllerFunctions::clickFunctions, ControllerCallbacks::rightGripOnClick);
+        if(!oldControllerState.isButtonXHeld         && controllerState.isButtonXHeld)         ControllerFunctions::execute(ControllerCallbacks::buttonXOnClick);
+        if(!oldControllerState.isButtonYHeld         && controllerState.isButtonYHeld)         ControllerFunctions::execute(ControllerCallbacks::buttonYOnClick);
+        if(!oldControllerState.isLeftThumbstickHeld  && controllerState.isLeftThumbstickHeld)  ControllerFunctions::execute(ControllerCallbacks::leftThumbstickOnClick);
+        if(!oldControllerState.isLeftTriggerHeld     && controllerState.isLeftTriggerHeld)     ControllerFunctions::execute(ControllerCallbacks::leftTriggerOnClick);
+        if(!oldControllerState.isLeftGripHeld        && controllerState.isLeftGripHeld)        ControllerFunctions::execute(ControllerCallbacks::leftGripOnClick);
+        if(!oldControllerState.isButtonAHeld         && controllerState.isButtonAHeld)         ControllerFunctions::execute(ControllerCallbacks::buttonAOnClick);
+        if(!oldControllerState.isButtonBHeld         && controllerState.isButtonBHeld)         ControllerFunctions::execute(ControllerCallbacks::buttonBOnClick);
+        if(!oldControllerState.isRightThumbstickHeld && controllerState.isRightThumbstickHeld) ControllerFunctions::execute(ControllerCallbacks::rightThumbstickOnClick);
+        if(!oldControllerState.isRightTriggerHeld    && controllerState.isRightTriggerHeld)    ControllerFunctions::execute(ControllerCallbacks::rightTriggerOnClick);
+        if(!oldControllerState.isRightGripHeld       && controllerState.isRightGripHeld)       ControllerFunctions::execute(ControllerCallbacks::rightGripOnClick);
 
-        ControllerFunctions::invoke<float>(ControllerFunctions::holdFunctions, ControllerCallbacks::buttonXOnHold,         controllerState.isButtonXHeld);
-        ControllerFunctions::invoke<float>(ControllerFunctions::holdFunctions, ControllerCallbacks::buttonYOnHold,         controllerState.isButtonYHeld);
-        ControllerFunctions::invoke<float>(ControllerFunctions::holdFunctions, ControllerCallbacks::leftThumbstickOnHold,  controllerState.isLeftThumbstickHeld);
-        ControllerFunctions::invoke<float>(ControllerFunctions::holdFunctions, ControllerCallbacks::buttonAOnHold,         controllerState.isButtonAHeld);
-        ControllerFunctions::invoke<float>(ControllerFunctions::holdFunctions, ControllerCallbacks::buttonBOnHold,         controllerState.isButtonBHeld);
-        ControllerFunctions::invoke<float>(ControllerFunctions::holdFunctions, ControllerCallbacks::rightThumbstickOnHold, controllerState.isRightThumbstickHeld);
+        ControllerFunctions::execute(ControllerCallbacks::buttonXOnHold,         controllerState.isButtonXHeld);
+        ControllerFunctions::execute(ControllerCallbacks::buttonYOnHold,         controllerState.isButtonYHeld);
+        ControllerFunctions::execute(ControllerCallbacks::leftThumbstickOnHold,  controllerState.isLeftThumbstickHeld);
+        ControllerFunctions::execute(ControllerCallbacks::buttonAOnHold,         controllerState.isButtonAHeld);
+        ControllerFunctions::execute(ControllerCallbacks::buttonBOnHold,         controllerState.isButtonBHeld);
+        ControllerFunctions::execute(ControllerCallbacks::rightThumbstickOnHold, controllerState.isRightThumbstickHeld);
 
-        ControllerFunctions::invoke<float>(ControllerFunctions::holdFunctions, ControllerCallbacks::leftTriggerOnHold,   controllerState.leftTriggerInput);
-        ControllerFunctions::invoke<float>(ControllerFunctions::holdFunctions, ControllerCallbacks::leftGripOnHold,      controllerState.leftGripInput);
-        ControllerFunctions::invoke<float>(ControllerFunctions::holdFunctions, ControllerCallbacks::rightTriggerOnHold,  controllerState.rightTriggerInput);
-        ControllerFunctions::invoke<float>(ControllerFunctions::holdFunctions, ControllerCallbacks::rightGripOnHold,     controllerState.rightGripInput);
+        ControllerFunctions::execute(ControllerCallbacks::leftTriggerOnHold,  controllerState.leftTriggerInput);
+        ControllerFunctions::execute(ControllerCallbacks::leftGripOnHold,     controllerState.leftGripInput);
+        ControllerFunctions::execute(ControllerCallbacks::rightTriggerOnHold, controllerState.rightTriggerInput);
+        ControllerFunctions::execute(ControllerCallbacks::rightGripOnHold,    controllerState.rightGripInput);
 
-        ControllerFunctions::invoke<float>(ControllerFunctions::thumbstickFunctions, ControllerCallbacks::leftThumbstickHorizontalOnUpdate,  controllerState.leftThumbstickHorizontalInput);
-        ControllerFunctions::invoke<float>(ControllerFunctions::thumbstickFunctions, ControllerCallbacks::leftThumbstickVerticalOnUpdate,    controllerState.leftThumbstickVerticalInput);
-        ControllerFunctions::invoke<float>(ControllerFunctions::thumbstickFunctions, ControllerCallbacks::rightThumbstickHorizontalOnUpdate, controllerState.rightThumbstickHorizontalInput);
-        ControllerFunctions::invoke<float>(ControllerFunctions::thumbstickFunctions, ControllerCallbacks::rightThumbstickVerticalOnUpdate,   controllerState.rightThumbstickVerticalInput);
+        ControllerFunctions::execute(ControllerCallbacks::leftThumbstickHorizontalOnUpdate,  controllerState.leftThumbstickHorizontalInput);
+        ControllerFunctions::execute(ControllerCallbacks::leftThumbstickVerticalOnUpdate,    controllerState.leftThumbstickVerticalInput);
+        ControllerFunctions::execute(ControllerCallbacks::rightThumbstickHorizontalOnUpdate, controllerState.rightThumbstickHorizontalInput);
+        ControllerFunctions::execute(ControllerCallbacks::rightThumbstickVerticalOnUpdate,   controllerState.rightThumbstickVerticalInput);
     }
 
 }
