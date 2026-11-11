@@ -32,6 +32,7 @@
 namespace PracticeTools::Game {
 
     UnityW<GlobalNamespace::AudioTimeSyncController> audioTimeSyncController = nullptr;
+
     static UnityW<GlobalNamespace::PauseController> pauseController = nullptr;
     static UnityW<GlobalNamespace::NoteCutSoundEffectManager> noteCutSoundEffectManager = nullptr;
     static UnityW<GlobalNamespace::AudioManagerSO> audioManager = nullptr;
@@ -102,7 +103,7 @@ namespace PracticeTools::Game {
         isTimeSkipping = false;
     }
 
-    void installGameHooks() {
+    void installHooks() {
         INSTALL_HOOK(PaperLogger, GameplayCoreInstaller_InstallBindings);
         INSTALL_HOOK(PaperLogger, NoteCutSoundEffectManager_HandleNoteWasSpawned);
         INSTALL_HOOK(PaperLogger, BeatmapCallbacksController_ManualUpdate);

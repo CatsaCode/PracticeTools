@@ -81,6 +81,16 @@
       "id": "config-utils",
       "versionRange": "^2.0.3",
       "additionalData": {}
+    },
+    {
+      "id": "custom-types",
+      "versionRange": "^0.18.4",
+      "additionalData": {}
+    },
+    {
+      "id": "bsml",
+      "versionRange": "^0.4.55",
+      "additionalData": {}
     }
   ]
 }

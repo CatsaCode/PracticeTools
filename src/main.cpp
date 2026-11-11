@@ -3,15 +3,13 @@
 
 #include "controllerInput.hpp"
 #include "game.hpp"
+#include "ui.hpp"
 
 #include "scotland2/shared/modloader.h"
+#include "custom-types/shared/register.hpp"
+#include "bsml/shared/BSML.hpp"
 
 #include "metacore/shared/events.hpp"
-#include "metacore/shared/internals.hpp"
-
-
-#include <cstdlib>
-#include <unordered_map>
 
 static modloader::ModInfo modInfo{MOD_ID, VERSION, 0};
 // Stores the ID and version of our mod, and is sent to
@@ -46,6 +44,8 @@ MOD_EXTERN_FUNC void setup(CModInfo *info) noexcept {
 // Called later on in the game loading - a good time to install function hooks
 MOD_EXTERN_FUNC void late_load() noexcept {
     il2cpp_functions::Init();
+    custom_types::Register::AutoRegister();
+    BSML::Init();
 
     getPracticeToolsConfig().Init(modInfo);
 
@@ -55,7 +55,8 @@ MOD_EXTERN_FUNC void late_load() noexcept {
 
     PaperLogger.info("Installing hooks...");
 
-    PracticeTools::Game::installGameHooks();
+    PracticeTools::Game::installHooks();
+    PracticeTools::UI::installHooks();
 
     PaperLogger.info("Installed all hooks!");
 }

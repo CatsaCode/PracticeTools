@@ -8,7 +8,7 @@ namespace PracticeTools::Game {
     bool areShortcutsEnabled();
     bool initReferences();
     void resetReferences();
-    void installGameHooks();
+    void installHooks();
 
     void stopAllNoteCutSoundEffects();
     void despawnAllObjects();
