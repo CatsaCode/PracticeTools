@@ -1,7 +1,5 @@
 #pragma once
 
-#include "controllerFunctions.hpp"
-
 #include "config-utils/shared/config-utils.hpp"
 
 DECLARE_CONFIG(PracticeToolsConfig) {
@@ -11,37 +9,30 @@ DECLARE_CONFIG(PracticeToolsConfig) {
     CONFIG_VALUE(speedChangePercentage, float, "speedChangePercentage", 10);
     CONFIG_VALUE(deadband, float, "deadband", 0.1);
     CONFIG_VALUE(sensitivity, float, "sensitivity", 1);
+
+    CONFIG_VALUE(buttonXOnClick, int, "buttonXOnClick", 0);
+    CONFIG_VALUE(buttonXOnHold, int, "buttonXOnHold", 0);
+    CONFIG_VALUE(buttonYOnClick, int, "buttonYOnClick", 0);
+    CONFIG_VALUE(buttonYOnHold, int, "buttonYOnHold", 0);
+    CONFIG_VALUE(leftTriggerOnClick, int, "leftTriggerOnClick", 0);
+    CONFIG_VALUE(leftTriggerOnHold, int, "leftTriggerOnHold", 0);
+    CONFIG_VALUE(leftGripOnClick, int, "leftGripOnClick", 0);
+    CONFIG_VALUE(leftGripOnHold, int, "leftGripOnHold", 0);
+    CONFIG_VALUE(leftThumbstickOnClick, int, "leftThumbstickOnClick", 0);
+    CONFIG_VALUE(leftThumbstickOnHold, int, "leftThumbstickOnHold", 0);
+    CONFIG_VALUE(leftThumbstickHorizontalOnUpdate, int, "leftThumbstickHorizontalOnUpdate", 0);
+    CONFIG_VALUE(leftThumbstickVerticalOnUpdate, int, "leftThumbstickVerticalOnUpdate", 0);
+
+    CONFIG_VALUE(buttonAOnClick, int, "buttonAOnClick", 0);
+    CONFIG_VALUE(buttonAOnHold, int, "buttonAOnHold", 0);
+    CONFIG_VALUE(buttonBOnClick, int, "buttonBOnClick", 0);
+    CONFIG_VALUE(buttonBOnHold, int, "buttonBOnHold", 0);
+    CONFIG_VALUE(rightTriggerOnClick, int, "rightTriggerOnClick", 0);
+    CONFIG_VALUE(rightTriggerOnHold, int, "rightTriggerOnHold", 0);
+    CONFIG_VALUE(rightGripOnClick, int, "rightGripOnClick", 0);
+    CONFIG_VALUE(rightGripOnHold, int, "rightGripOnHold", 0);
+    CONFIG_VALUE(rightThumbstickOnClick, int, "rightThumbstickOnClick", 0);
+    CONFIG_VALUE(rightThumbstickOnHold, int, "rightThumbstickOnHold", 0);
+    CONFIG_VALUE(rightThumbstickHorizontalOnUpdate, int, "rightThumbstickHorizontalOnUpdate", 0);
+    CONFIG_VALUE(rightThumbstickVerticalOnUpdate, int, "rightThumbstickVerticalOnUpdate", 0);
 };
-
-// TODO Actual config and enums
-namespace PracticeTools::ControllerCallbacks {
-    using CF = ControllerFunctions::ClickFunction;
-    using HF = ControllerFunctions::HoldFunction;
-    using TF = ControllerFunctions::ThumbstickFunction;
-
-    static CF buttonXOnClick =                    CF::DecreaseSpeed;
-    static CF buttonYOnClick =                    CF::IncreaseSpeed;
-    static CF leftThumbstickOnClick =             CF::ResetSpeed;
-    static CF leftTriggerOnClick =                CF::None;
-    static CF leftGripOnClick =                   CF::None;
-    static HF buttonXOnHold =                     HF::None;
-    static HF buttonYOnHold =                     HF::None;
-    static HF leftThumbstickOnHold =              HF::None;
-    static HF leftTriggerOnHold =                 HF::DecreaseSpeed;
-    static HF leftGripOnHold =                    HF::SkipBackward;
-    static TF leftThumbstickHorizontalOnUpdate =  TF::None;
-    static TF leftThumbstickVerticalOnUpdate =    TF::None;
-
-    static CF buttonAOnClick =                    CF::SkipBackward;
-    static CF buttonBOnClick =                    CF::SkipForward;
-    static CF rightThumbstickOnClick =            CF::PausePlay;
-    static CF rightTriggerOnClick =               CF::None;
-    static CF rightGripOnClick =                  CF::None;
-    static HF buttonAOnHold =                     HF::None;
-    static HF buttonBOnHold =                     HF::None;
-    static HF rightThumbstickOnHold =             HF::None;
-    static HF rightTriggerOnHold =                HF::IncreaseSpeed;
-    static HF rightGripOnHold =                   HF::SkipForward;
-    static TF rightThumbstickHorizontalOnUpdate = TF::None;
-    static TF rightThumbstickVerticalOnUpdate =   TF::None;
-}

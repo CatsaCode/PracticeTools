@@ -29,25 +29,27 @@ namespace PracticeTools::ControllerInput {
         float rightGripInput = 0;
 
         void update() {
-            isButtonXHeld         = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left,  MetaCore::Input::Buttons::AX);
-            isButtonYHeld         = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left,  MetaCore::Input::Buttons::BY);
-            isLeftThumbstickHeld  = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left,  MetaCore::Input::Buttons::Thumbstick);
-            isLeftTriggerHeld     = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left,  MetaCore::Input::Buttons::Trigger);
-            isLeftGripHeld        = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Left,  MetaCore::Input::Buttons::Grip);
-            isButtonAHeld         = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::AX);
-            isButtonBHeld         = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::BY);
-            isRightThumbstickHeld = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Thumbstick);
-            isRightTriggerHeld    = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Trigger);
-            isRightGripHeld       = MetaCore::Input::GetPressed(MetaCore::Input::Controllers::Right, MetaCore::Input::Buttons::Grip);
+            using namespace MetaCore::Input;
 
-            leftThumbstickHorizontalInput  = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left,  MetaCore::Input::Axes::ThumbstickHorizontal);
-            leftThumbstickVerticalInput    = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left,  MetaCore::Input::Axes::ThumbstickVertical);
-            leftTriggerInput               = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left,  MetaCore::Input::Axes::TriggerStrength);
-            leftGripInput                  = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Left,  MetaCore::Input::Axes::GripStrength);
-            rightThumbstickHorizontalInput = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Right, MetaCore::Input::Axes::ThumbstickHorizontal);
-            rightThumbstickVerticalInput   = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Right, MetaCore::Input::Axes::ThumbstickVertical);
-            rightTriggerInput              = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Right, MetaCore::Input::Axes::TriggerStrength);
-            rightGripInput                 = MetaCore::Input::GetAxis(MetaCore::Input::Controllers::Right, MetaCore::Input::Axes::GripStrength);
+            isButtonXHeld         = GetPressed(Controllers::Left,  Buttons::AX);
+            isButtonYHeld         = GetPressed(Controllers::Left,  Buttons::BY);
+            isLeftThumbstickHeld  = GetPressed(Controllers::Left,  Buttons::Thumbstick);
+            isLeftTriggerHeld     = GetPressed(Controllers::Left,  Buttons::Trigger);
+            isLeftGripHeld        = GetPressed(Controllers::Left,  Buttons::Grip);
+            isButtonAHeld         = GetPressed(Controllers::Right, Buttons::AX);
+            isButtonBHeld         = GetPressed(Controllers::Right, Buttons::BY);
+            isRightThumbstickHeld = GetPressed(Controllers::Right, Buttons::Thumbstick);
+            isRightTriggerHeld    = GetPressed(Controllers::Right, Buttons::Trigger);
+            isRightGripHeld       = GetPressed(Controllers::Right, Buttons::Grip);
+
+            leftThumbstickHorizontalInput  = GetAxis(Controllers::Left,  Axes::ThumbstickHorizontal);
+            leftThumbstickVerticalInput    = GetAxis(Controllers::Left,  Axes::ThumbstickVertical);
+            leftTriggerInput               = GetAxis(Controllers::Left,  Axes::TriggerStrength);
+            leftGripInput                  = GetAxis(Controllers::Left,  Axes::GripStrength);
+            rightThumbstickHorizontalInput = GetAxis(Controllers::Right, Axes::ThumbstickHorizontal);
+            rightThumbstickVerticalInput   = GetAxis(Controllers::Right, Axes::ThumbstickVertical);
+            rightTriggerInput              = GetAxis(Controllers::Right, Axes::TriggerStrength);
+            rightGripInput                 = GetAxis(Controllers::Right, Axes::GripStrength);
         }
     };
 
@@ -56,33 +58,36 @@ namespace PracticeTools::ControllerInput {
         ControllerState oldControllerState = controllerState;
         controllerState.update();
 
-        if(!oldControllerState.isButtonXHeld         && controllerState.isButtonXHeld)         ControllerFunctions::execute(ControllerCallbacks::buttonXOnClick);
-        if(!oldControllerState.isButtonYHeld         && controllerState.isButtonYHeld)         ControllerFunctions::execute(ControllerCallbacks::buttonYOnClick);
-        if(!oldControllerState.isLeftThumbstickHeld  && controllerState.isLeftThumbstickHeld)  ControllerFunctions::execute(ControllerCallbacks::leftThumbstickOnClick);
-        if(!oldControllerState.isLeftTriggerHeld     && controllerState.isLeftTriggerHeld)     ControllerFunctions::execute(ControllerCallbacks::leftTriggerOnClick);
-        if(!oldControllerState.isLeftGripHeld        && controllerState.isLeftGripHeld)        ControllerFunctions::execute(ControllerCallbacks::leftGripOnClick);
-        if(!oldControllerState.isButtonAHeld         && controllerState.isButtonAHeld)         ControllerFunctions::execute(ControllerCallbacks::buttonAOnClick);
-        if(!oldControllerState.isButtonBHeld         && controllerState.isButtonBHeld)         ControllerFunctions::execute(ControllerCallbacks::buttonBOnClick);
-        if(!oldControllerState.isRightThumbstickHeld && controllerState.isRightThumbstickHeld) ControllerFunctions::execute(ControllerCallbacks::rightThumbstickOnClick);
-        if(!oldControllerState.isRightTriggerHeld    && controllerState.isRightTriggerHeld)    ControllerFunctions::execute(ControllerCallbacks::rightTriggerOnClick);
-        if(!oldControllerState.isRightGripHeld       && controllerState.isRightGripHeld)       ControllerFunctions::execute(ControllerCallbacks::rightGripOnClick);
+        #define EXECUTE_CONTROLLER_FUNCTION(type, configName, ...) \
+        ControllerFunctions::execute(static_cast<ControllerFunctions::type>(getPracticeToolsConfig().configName.GetValue()) __VA_OPT__(,) __VA_ARGS__)
 
-        ControllerFunctions::execute(ControllerCallbacks::buttonXOnHold,         controllerState.isButtonXHeld);
-        ControllerFunctions::execute(ControllerCallbacks::buttonYOnHold,         controllerState.isButtonYHeld);
-        ControllerFunctions::execute(ControllerCallbacks::leftThumbstickOnHold,  controllerState.isLeftThumbstickHeld);
-        ControllerFunctions::execute(ControllerCallbacks::buttonAOnHold,         controllerState.isButtonAHeld);
-        ControllerFunctions::execute(ControllerCallbacks::buttonBOnHold,         controllerState.isButtonBHeld);
-        ControllerFunctions::execute(ControllerCallbacks::rightThumbstickOnHold, controllerState.isRightThumbstickHeld);
+        if(!oldControllerState.isButtonXHeld         && controllerState.isButtonXHeld)         EXECUTE_CONTROLLER_FUNCTION(ClickFunction, buttonXOnClick);
+        if(!oldControllerState.isButtonYHeld         && controllerState.isButtonYHeld)         EXECUTE_CONTROLLER_FUNCTION(ClickFunction, buttonYOnClick);
+        if(!oldControllerState.isLeftThumbstickHeld  && controllerState.isLeftThumbstickHeld)  EXECUTE_CONTROLLER_FUNCTION(ClickFunction, leftThumbstickOnClick);
+        if(!oldControllerState.isLeftTriggerHeld     && controllerState.isLeftTriggerHeld)     EXECUTE_CONTROLLER_FUNCTION(ClickFunction, leftTriggerOnClick);
+        if(!oldControllerState.isLeftGripHeld        && controllerState.isLeftGripHeld)        EXECUTE_CONTROLLER_FUNCTION(ClickFunction, leftGripOnClick);
+        if(!oldControllerState.isButtonAHeld         && controllerState.isButtonAHeld)         EXECUTE_CONTROLLER_FUNCTION(ClickFunction, buttonAOnClick);
+        if(!oldControllerState.isButtonBHeld         && controllerState.isButtonBHeld)         EXECUTE_CONTROLLER_FUNCTION(ClickFunction, buttonBOnClick);
+        if(!oldControllerState.isRightThumbstickHeld && controllerState.isRightThumbstickHeld) EXECUTE_CONTROLLER_FUNCTION(ClickFunction, rightThumbstickOnClick);
+        if(!oldControllerState.isRightTriggerHeld    && controllerState.isRightTriggerHeld)    EXECUTE_CONTROLLER_FUNCTION(ClickFunction, rightTriggerOnClick);
+        if(!oldControllerState.isRightGripHeld       && controllerState.isRightGripHeld)       EXECUTE_CONTROLLER_FUNCTION(ClickFunction, rightGripOnClick);
 
-        ControllerFunctions::execute(ControllerCallbacks::leftTriggerOnHold,  controllerState.leftTriggerInput);
-        ControllerFunctions::execute(ControllerCallbacks::leftGripOnHold,     controllerState.leftGripInput);
-        ControllerFunctions::execute(ControllerCallbacks::rightTriggerOnHold, controllerState.rightTriggerInput);
-        ControllerFunctions::execute(ControllerCallbacks::rightGripOnHold,    controllerState.rightGripInput);
+        EXECUTE_CONTROLLER_FUNCTION(HoldFunction, buttonXOnHold, controllerState.isButtonXHeld);
+        EXECUTE_CONTROLLER_FUNCTION(HoldFunction, buttonYOnHold, controllerState.isButtonYHeld);
+        EXECUTE_CONTROLLER_FUNCTION(HoldFunction, leftThumbstickOnHold, controllerState.isLeftThumbstickHeld);
+        EXECUTE_CONTROLLER_FUNCTION(HoldFunction, buttonAOnHold, controllerState.isButtonAHeld);
+        EXECUTE_CONTROLLER_FUNCTION(HoldFunction, buttonBOnHold, controllerState.isButtonBHeld);
+        EXECUTE_CONTROLLER_FUNCTION(HoldFunction, rightThumbstickOnHold, controllerState.isRightThumbstickHeld);
 
-        ControllerFunctions::execute(ControllerCallbacks::leftThumbstickHorizontalOnUpdate,  controllerState.leftThumbstickHorizontalInput);
-        ControllerFunctions::execute(ControllerCallbacks::leftThumbstickVerticalOnUpdate,    controllerState.leftThumbstickVerticalInput);
-        ControllerFunctions::execute(ControllerCallbacks::rightThumbstickHorizontalOnUpdate, controllerState.rightThumbstickHorizontalInput);
-        ControllerFunctions::execute(ControllerCallbacks::rightThumbstickVerticalOnUpdate,   controllerState.rightThumbstickVerticalInput);
+        EXECUTE_CONTROLLER_FUNCTION(HoldFunction, leftTriggerOnHold, controllerState.leftTriggerInput);
+        EXECUTE_CONTROLLER_FUNCTION(HoldFunction, leftGripOnHold, controllerState.leftGripInput);
+        EXECUTE_CONTROLLER_FUNCTION(HoldFunction, rightTriggerOnHold, controllerState.rightTriggerInput);
+        EXECUTE_CONTROLLER_FUNCTION(HoldFunction, rightGripOnHold, controllerState.rightGripInput);
+
+        EXECUTE_CONTROLLER_FUNCTION(ThumbstickFunction, leftThumbstickHorizontalOnUpdate, controllerState.leftThumbstickHorizontalInput);
+        EXECUTE_CONTROLLER_FUNCTION(ThumbstickFunction, leftThumbstickVerticalOnUpdate, controllerState.leftThumbstickVerticalInput);
+        EXECUTE_CONTROLLER_FUNCTION(ThumbstickFunction, rightThumbstickHorizontalOnUpdate, controllerState.rightThumbstickHorizontalInput);
+        EXECUTE_CONTROLLER_FUNCTION(ThumbstickFunction, rightThumbstickVerticalOnUpdate, controllerState.rightThumbstickVerticalInput);
     }
 
 }
