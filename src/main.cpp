@@ -1,6 +1,7 @@
 #include "main.hpp"
 #include "config.hpp"
 
+#include "controllerFunctions.hpp"
 #include "controllerInput.hpp"
 #include "game.hpp"
 #include "ui.hpp"
@@ -17,6 +18,7 @@ static modloader::ModInfo modInfo{MOD_ID, VERSION, 0};
 
 void handleMapStart() {
     PracticeTools::Game::initReferences();
+    PracticeTools::ControllerFunctions::clearMarkers();
 }
 
 void handleMapUpdate() {

@@ -9,6 +9,12 @@
 
 namespace PracticeTools::ControllerFunctions {
 
+    static std::set<float> markers = {};
+
+    void clearMarkers() {
+        markers.clear();
+    }
+
     void execute(ClickFunction function) {
         switch(function) {
             case ClickFunction::None:
@@ -16,22 +22,22 @@ namespace PracticeTools::ControllerFunctions {
 
             case ClickFunction::SkipForward: {
                 float offset = getPracticeToolsConfig().skipDuration.GetValue();
-                Game::manualSeekToAbsolute(Game::audioTimeSyncController->get_songTime() + offset);
+                Game::manualSeekToAbsolute(Game::audioTimeSyncController->songTime + offset);
                 break;
             }
             case ClickFunction::SkipBackward: {
                 float offset = -getPracticeToolsConfig().skipDuration.GetValue();
-                Game::manualSeekToAbsolute(Game::audioTimeSyncController->get_songTime() + offset);
+                Game::manualSeekToAbsolute(Game::audioTimeSyncController->songTime + offset);
                 break;
             }
             case ClickFunction::IncreaseSpeed: {
                 float scaleFactor = 1 + getPracticeToolsConfig().speedChangePercentage.GetValue() / 100;
-                Game::manualSetTimeScale(Game::audioTimeSyncController->get_timeScale() * scaleFactor);
+                Game::manualSetTimeScale(Game::audioTimeSyncController->timeScale * scaleFactor);
                 break;
             }
             case ClickFunction::DecreaseSpeed: {
                 float scaleFactor = 1 + getPracticeToolsConfig().speedChangePercentage.GetValue() / 100;
-                Game::manualSetTimeScale(Game::audioTimeSyncController->get_timeScale() / scaleFactor);
+                Game::manualSetTimeScale(Game::audioTimeSyncController->timeScale / scaleFactor);
                 break;
             }
             case ClickFunction::ResetSpeed: {
@@ -45,19 +51,28 @@ namespace PracticeTools::ControllerFunctions {
                 break;
             }
             case ClickFunction::AddMarker: {
-                PaperLogger.debug("(Click) Add Marker");
+                markers.emplace(Game::audioTimeSyncController->songTime);
                 break;
             }
             case ClickFunction::RemoveMarker: {
-                PaperLogger.debug("(Click) Remove Marker");
+                auto nextMarker = markers.upper_bound(Game::audioTimeSyncController->songTime);
+                if (nextMarker != markers.begin())
+                    markers.erase(std::prev(nextMarker));
                 break;
             }
             case ClickFunction::NextMarker: {
-                PaperLogger.debug("(Click) Next Marker");
+                auto nextMarker = markers.upper_bound(Game::audioTimeSyncController->songTime);
+                if (!markers.empty() && nextMarker != markers.end())
+                    Game::manualSeekToAbsolute(*nextMarker);
                 break;
             }
             case ClickFunction::PreviousMarker: {
-                PaperLogger.debug("(Click) Previous Marker");
+                float doubleClickSeconds = 0.5;
+                auto nextMarker = markers.lower_bound(Game::audioTimeSyncController->songTime - doubleClickSeconds);
+                if (nextMarker == markers.begin())
+                    Game::manualSeekToAbsolute(0);
+                else
+                    Game::manualSeekToAbsolute(*std::prev(nextMarker));
                 break;
             }
 
@@ -73,22 +88,22 @@ namespace PracticeTools::ControllerFunctions {
 
             case HoldFunction::SkipForward: {
                 float offset = getPracticeToolsConfig().skipDuration.GetValue() * input * getPracticeToolsConfig().sensitivity.GetValue() * UnityEngine::Time::get_deltaTime();
-                Game::manualSeekToAbsolute(Game::audioTimeSyncController->get_songTime() + offset);
+                Game::manualSeekToAbsolute(Game::audioTimeSyncController->songTime + offset);
                 break;
             }
             case HoldFunction::SkipBackward: {
                 float offset = -getPracticeToolsConfig().skipDuration.GetValue() * input * getPracticeToolsConfig().sensitivity.GetValue() * UnityEngine::Time::get_deltaTime();
-                Game::manualSeekToAbsolute(Game::audioTimeSyncController->get_songTime() + offset);
+                Game::manualSeekToAbsolute(Game::audioTimeSyncController->songTime + offset);
                 break;
             }
             case HoldFunction::IncreaseSpeed: {
                 float scaleFactor = pow(1 + getPracticeToolsConfig().speedChangePercentage.GetValue() / 100 * input, UnityEngine::Time::get_deltaTime());
-                Game::manualSetTimeScale(Game::audioTimeSyncController->get_timeScale() * scaleFactor);
+                Game::manualSetTimeScale(Game::audioTimeSyncController->timeScale * scaleFactor);
                 break;
             }
             case HoldFunction::DecreaseSpeed: {
                 float scaleFactor = pow(1 + getPracticeToolsConfig().speedChangePercentage.GetValue() / 100 * input, UnityEngine::Time::get_deltaTime());
-                Game::manualSetTimeScale(Game::audioTimeSyncController->get_timeScale() / scaleFactor);
+                Game::manualSetTimeScale(Game::audioTimeSyncController->timeScale / scaleFactor);
                 break;
             }
 
@@ -104,13 +119,13 @@ namespace PracticeTools::ControllerFunctions {
 
             case ThumbstickFunction::TimeSkip: {
                 float offset = getPracticeToolsConfig().skipDuration.GetValue() * input * getPracticeToolsConfig().sensitivity.GetValue() * UnityEngine::Time::get_deltaTime();
-                Game::manualSeekToAbsolute(Game::audioTimeSyncController->get_songTime() + offset);
+                Game::manualSeekToAbsolute(Game::audioTimeSyncController->songTime + offset);
                 break;
             }
             case ThumbstickFunction::AdjustSpeed: {
                 float scaleFactor = pow(1 + getPracticeToolsConfig().speedChangePercentage.GetValue() / 100 * abs(input), UnityEngine::Time::get_deltaTime());
                 if(input < 0) scaleFactor = 1 / scaleFactor;
-                Game::manualSetTimeScale(Game::audioTimeSyncController->get_timeScale() * scaleFactor);
+                Game::manualSetTimeScale(Game::audioTimeSyncController->timeScale * scaleFactor);
                 break;
             }
 

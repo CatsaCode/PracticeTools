@@ -4,6 +4,8 @@
 
 namespace PracticeTools::ControllerFunctions {
 
+    void clearMarkers();
+
     enum class ClickFunction {
         None,
         SkipForward, SkipBackward,
