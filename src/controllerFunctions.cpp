@@ -45,7 +45,7 @@ namespace PracticeTools::ControllerFunctions {
                 break;
             }
             case ClickFunction::PausePlay: {
-                if(Game::audioTimeSyncController->get_state() == GlobalNamespace::AudioTimeSyncController::State::Playing)
+                if(Game::audioTimeSyncController->state == GlobalNamespace::AudioTimeSyncController::State::Playing)
                     Game::manualPause();
                 else Game::manualResume();
                 break;
@@ -88,11 +88,15 @@ namespace PracticeTools::ControllerFunctions {
 
             case HoldFunction::SkipForward: {
                 float offset = getPracticeToolsConfig().skipDuration.GetValue() * input * getPracticeToolsConfig().sensitivity.GetValue() * UnityEngine::Time::get_deltaTime();
+                if (Game::audioTimeSyncController->state == GlobalNamespace::AudioTimeSyncController::State::Playing)
+                    offset -= UnityEngine::Time::get_deltaTime();
                 Game::manualSeekToAbsolute(Game::audioTimeSyncController->songTime + offset);
                 break;
             }
             case HoldFunction::SkipBackward: {
                 float offset = -getPracticeToolsConfig().skipDuration.GetValue() * input * getPracticeToolsConfig().sensitivity.GetValue() * UnityEngine::Time::get_deltaTime();
+                if (Game::audioTimeSyncController->state == GlobalNamespace::AudioTimeSyncController::State::Playing)
+                    offset -= UnityEngine::Time::get_deltaTime();
                 Game::manualSeekToAbsolute(Game::audioTimeSyncController->songTime + offset);
                 break;
             }
@@ -119,6 +123,8 @@ namespace PracticeTools::ControllerFunctions {
 
             case ThumbstickFunction::TimeSkip: {
                 float offset = getPracticeToolsConfig().skipDuration.GetValue() * input * getPracticeToolsConfig().sensitivity.GetValue() * UnityEngine::Time::get_deltaTime();
+                if (Game::audioTimeSyncController->state == GlobalNamespace::AudioTimeSyncController::State::Playing)
+                    offset -= UnityEngine::Time::get_deltaTime();
                 Game::manualSeekToAbsolute(Game::audioTimeSyncController->songTime + offset);
                 break;
             }
