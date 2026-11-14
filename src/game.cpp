@@ -19,15 +19,14 @@
 #include "GlobalNamespace/AudioManagerSO.hpp"
 #include "GlobalNamespace/BeatmapDataItem.hpp"
 #include "GlobalNamespace/NoteData.hpp"
-#include "GlobalNamespace/NoteController.hpp"
 #include "GlobalNamespace/GameplayCoreInstaller.hpp"
 #include "UnityEngine/Resources.hpp"
 #include "UnityEngine/GameObject.hpp"
 #include "System/Collections/Generic/Dictionary_2.hpp"
-#include "System/Collections/Generic/LinkedList_1.hpp"
 #include "System/Collections/Generic/LinkedListNode_1.hpp"
 #include "UnityEngine/AudioSource.hpp"
 #include "UnityEngine/AudioClip.hpp"
+#include "UnityEngine/Time.hpp"
 
 namespace PracticeTools::Game {
 
@@ -42,7 +41,6 @@ namespace PracticeTools::Game {
 
     static bool isPracticing = false;
     static bool areReferencesSafe = false;
-    static bool isTimeSkipping = false;
 
     bool areShortcutsEnabled() {
         return getPracticeToolsConfig().enabled.GetValue() && isPracticing && areReferencesSafe;
@@ -75,7 +73,6 @@ namespace PracticeTools::Game {
     void resetReferences() {
         areReferencesSafe = false;
         isPracticing = false;
-        isTimeSkipping = false;
     }
 
 
@@ -90,36 +87,8 @@ namespace PracticeTools::Game {
         MetaCore::Game::SetScoreSubmission(MOD_ID, !(getPracticeToolsConfig().enabled.GetValue() && isPracticing));
     }
 
-    MAKE_HOOK_MATCH(
-        NoteCutSoundEffectManager_HandleNoteWasSpawned,
-        &GlobalNamespace::NoteCutSoundEffectManager::HandleNoteWasSpawned,
-        void, GlobalNamespace::NoteCutSoundEffectManager* self,
-        GlobalNamespace::NoteController* noteController
-    ) {
-        if (!isTimeSkipping)
-            return NoteCutSoundEffectManager_HandleNoteWasSpawned(self, noteController);
-
-        GlobalNamespace::NoteData* noteData = noteController->noteData;
-        if (!self->IsSupportedNote(noteData))
-            return;
-        self->_prevNoteATime = noteData->time;
-        self->_prevNoteBTime = noteData->time;
-    }
-
-    MAKE_HOOK_MATCH(
-        BeatmapCallbacksController_ManualUpdate,
-        &GlobalNamespace::BeatmapCallbacksController::ManualUpdate,
-        void, GlobalNamespace::BeatmapCallbacksController* self,
-        float songTime
-    ) {
-        BeatmapCallbacksController_ManualUpdate(self, songTime);
-        isTimeSkipping = false;
-    }
-
     void installHooks() {
         INSTALL_HOOK(PaperLogger, GameplayCoreInstaller_InstallBindings);
-        INSTALL_HOOK(PaperLogger, NoteCutSoundEffectManager_HandleNoteWasSpawned);
-        INSTALL_HOOK(PaperLogger, BeatmapCallbacksController_ManualUpdate);
     }
 
 
@@ -159,26 +128,52 @@ namespace PracticeTools::Game {
     }
 
     void manualSeekToAbsolute(float songTime) {
-        isTimeSkipping = true;
-        bool reverse = songTime < audioTimeSyncController->songTime;
+        float deltaSongTime = songTime - audioTimeSyncController->songTime;
 
         songTime = std::max(0.0f, std::min(songTime, audioTimeSyncController->_audioSource->clip->length - 0.01f));
         audioTimeSyncController->_startSongTime = songTime;
         audioTimeSyncController->SeekTo(0);
 
-        beatmapCallbacksController->_prevSongTime = songTime;
+        beatmapCallbacksController->_songTime = songTime;
+        // Letting Beat Saber invoke callbacks in reverse can crash the game
+        beatmapCallbacksController->_prevSongTime = songTime - UnityEngine::Time::get_deltaTime();
+
+        stopAllNoteCutSoundEffects();
         noteCutSoundEffectManager->_prevNoteATime = songTime;
         noteCutSoundEffectManager->_prevNoteBTime = songTime;
 
-        despawnAllObjects();
-        stopAllNoteCutSoundEffects();
-
-        if (!reverse)
+        if (deltaSongTime >= 0)
             return;
 
         for (auto callbacksInTime : beatmapCallbacksController->_callbacksInTimes->_entries) {
-            while (callbacksInTime.value && callbacksInTime.value->lastProcessedNode != nullptr && callbacksInTime.value->lastProcessedNode->Value->time > songTime) {
-                callbacksInTime.value->lastProcessedNode = callbacksInTime.value->lastProcessedNode->Previous;
+            auto* value = callbacksInTime.value;
+            auto* node = value->lastProcessedNode;
+
+            // Reverse lastProcessedNode to the new spawn time
+            while (
+                node &&
+                node->Value->time - value->aheadTime > songTime
+            ) {
+                if (node->Value->type == GlobalNamespace::BeatmapDataItem::BeatmapDataItemType::BeatmapEvent)
+                    beatmapCallbacksController->_callCallbacksBehavior->CallCallbacks(value, node->Value);
+
+                value->lastProcessedNode = node->Previous;
+                node = node->Previous;
+            }
+
+            // Spawn nearby notes that haven't been spawned yet
+            while (
+                node &&
+                node->Value->time > songTime
+            ) {
+                if (
+                    node->Value->type == GlobalNamespace::BeatmapDataItem::BeatmapDataItemType::BeatmapObject &&
+                    node->Value->time <= songTime - deltaSongTime
+                ) {
+                    beatmapCallbacksController->_callCallbacksBehavior->CallCallbacks(value, node->Value);
+                }
+
+                node = node->Previous;
             }
         }
     }
