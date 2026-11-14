@@ -47,7 +47,8 @@ namespace PracticeTools::ControllerFunctions {
             case ClickFunction::PausePlay: {
                 if(Game::audioTimeSyncController->state == GlobalNamespace::AudioTimeSyncController::State::Playing)
                     Game::manualPause();
-                else Game::manualResume();
+                else
+                    Game::manualResume();
                 break;
             }
             case ClickFunction::AddMarker: {
@@ -130,7 +131,8 @@ namespace PracticeTools::ControllerFunctions {
             }
             case ThumbstickFunction::AdjustSpeed: {
                 float scaleFactor = pow(1 + getPracticeToolsConfig().speedChangePercentage.GetValue() / 100 * abs(input), UnityEngine::Time::get_deltaTime());
-                if(input < 0) scaleFactor = 1 / scaleFactor;
+                if(input < 0)
+                    scaleFactor = 1 / scaleFactor;
                 Game::manualSetTimeScale(Game::audioTimeSyncController->timeScale * scaleFactor);
                 break;
             }

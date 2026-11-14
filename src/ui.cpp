@@ -71,11 +71,11 @@ namespace PracticeTools::UI {
         auto* container = BSML::Lite::CreateScrollableSettingsContainer(transform);
 
         using namespace ControllerFunctions;
-        #define CREATE_BINDING_DROPDOWN(parent, label, values, configName)  \
-        BSML::Lite::CreateDropdown(parent, label,                           \
-            values[getPracticeToolsConfig().configName.GetValue()], values, \
-            [](StringW value){getPracticeToolsConfig().configName.SetValue( \
-                findDropdownIndex(values, value));})                        \
+        #define CREATE_BINDING_DROPDOWN(parent, label, values, configName)    \
+        BSML::Lite::CreateDropdown(parent, label,                             \
+            values[getPracticeToolsConfig().configName.GetValue()], values,   \
+            [](StringW value){getPracticeToolsConfig().configName.SetValue(   \
+                findDropdownIndex(values, value));})                          \
 
         CREATE_BINDING_DROPDOWN(container, "Click X", clickFunctionLabels, buttonXOnClick);
         CREATE_BINDING_DROPDOWN(container, "Hold X", holdFunctionLabels, buttonXOnHold);
@@ -102,5 +102,7 @@ namespace PracticeTools::UI {
         CREATE_BINDING_DROPDOWN(container, "Hold Right Thumbstick", holdFunctionLabels, rightThumbstickOnHold);
         CREATE_BINDING_DROPDOWN(container, "Horizontal Right Thumbstick", thumbstickFunctionLabels, rightThumbstickHorizontalOnUpdate);
         CREATE_BINDING_DROPDOWN(container, "Vertical Right Thumbstick", thumbstickFunctionLabels, rightThumbstickVerticalOnUpdate);
+
+        #undef CREATE_BINDING_DROPDOWN
     }
 }

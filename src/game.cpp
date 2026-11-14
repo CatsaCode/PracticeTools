@@ -49,24 +49,27 @@ namespace PracticeTools::Game {
     }
 
     bool initReferences() {
-        #define findObject(name, source)                                        \
-        name = source;                                                          \
-        if(!name) {PaperLogger.error("Could not find " #name); return false;}
-
         areReferencesSafe = false;
 
-        findObject(audioTimeSyncController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::AudioTimeSyncController*>());
-        findObject(pauseController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::PauseController*>());
-        findObject(noteCutSoundEffectManager, UnityEngine::Object::FindObjectOfType<GlobalNamespace::NoteCutSoundEffectManager*>());
-        findObject(gamePause, pauseController->_gamePause);
-        findObject(audioManager, noteCutSoundEffectManager->_audioManager);
-        findObject(beatmapObjectManager, MetaCore::Internals::beatmapObjectManager);
-        findObject(beatmapCallbacksController, MetaCore::Internals::beatmapCallbacksController);
+        #define FIND_OBJECT(name, source)                 \
+        name = source;                                    \
+        if (!name) {                                      \
+            PaperLogger.error("Could not find " #name);   \
+            return false;                                 \
+        }
+
+        FIND_OBJECT(audioTimeSyncController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::AudioTimeSyncController*>());
+        FIND_OBJECT(pauseController, UnityEngine::Object::FindObjectOfType<GlobalNamespace::PauseController*>());
+        FIND_OBJECT(noteCutSoundEffectManager, UnityEngine::Object::FindObjectOfType<GlobalNamespace::NoteCutSoundEffectManager*>());
+        FIND_OBJECT(gamePause, pauseController->_gamePause);
+        FIND_OBJECT(audioManager, noteCutSoundEffectManager->_audioManager);
+        FIND_OBJECT(beatmapObjectManager, MetaCore::Internals::beatmapObjectManager);
+        FIND_OBJECT(beatmapCallbacksController, MetaCore::Internals::beatmapCallbacksController);
+
+        #undef FIND_OBJECT
 
         areReferencesSafe = true;
         return true;
-
-        #undef getObject
     }
 
     void resetReferences() {
@@ -77,7 +80,9 @@ namespace PracticeTools::Game {
 
 
 
-    MAKE_HOOK_MATCH(GameplayCoreInstaller_InstallBindings, &GlobalNamespace::GameplayCoreInstaller::InstallBindings,
+    MAKE_HOOK_MATCH(
+        GameplayCoreInstaller_InstallBindings,
+        &GlobalNamespace::GameplayCoreInstaller::InstallBindings,
         void, GlobalNamespace::GameplayCoreInstaller* self
     ) {
         GameplayCoreInstaller_InstallBindings(self);
@@ -85,19 +90,27 @@ namespace PracticeTools::Game {
         MetaCore::Game::SetScoreSubmission(MOD_ID, !(getPracticeToolsConfig().enabled.GetValue() && isPracticing));
     }
 
-    MAKE_HOOK_MATCH(NoteCutSoundEffectManager_HandleNoteWasSpawned, &GlobalNamespace::NoteCutSoundEffectManager::HandleNoteWasSpawned,
-        void, GlobalNamespace::NoteCutSoundEffectManager* self, GlobalNamespace::NoteController* noteController
+    MAKE_HOOK_MATCH(
+        NoteCutSoundEffectManager_HandleNoteWasSpawned,
+        &GlobalNamespace::NoteCutSoundEffectManager::HandleNoteWasSpawned,
+        void, GlobalNamespace::NoteCutSoundEffectManager* self,
+        GlobalNamespace::NoteController* noteController
     ) {
-        if(!isTimeSkipping) return NoteCutSoundEffectManager_HandleNoteWasSpawned(self, noteController);
+        if (!isTimeSkipping)
+            return NoteCutSoundEffectManager_HandleNoteWasSpawned(self, noteController);
 
-        GlobalNamespace::NoteData* noteData = noteController->get_noteData();
-        if(!self->IsSupportedNote(noteData)) return;
-        self->_prevNoteATime = noteData->get_time();
-        self->_prevNoteBTime = noteData->get_time();
+        GlobalNamespace::NoteData* noteData = noteController->noteData;
+        if (!self->IsSupportedNote(noteData))
+            return;
+        self->_prevNoteATime = noteData->time;
+        self->_prevNoteBTime = noteData->time;
     }
 
-    MAKE_HOOK_MATCH(BeatmapCallbacksController_ManualUpdate, &GlobalNamespace::BeatmapCallbacksController::ManualUpdate, void,
-        GlobalNamespace::BeatmapCallbacksController* self, float songTime
+    MAKE_HOOK_MATCH(
+        BeatmapCallbacksController_ManualUpdate,
+        &GlobalNamespace::BeatmapCallbacksController::ManualUpdate,
+        void, GlobalNamespace::BeatmapCallbacksController* self,
+        float songTime
     ) {
         BeatmapCallbacksController_ManualUpdate(self, songTime);
         isTimeSkipping = false;
@@ -112,17 +125,17 @@ namespace PracticeTools::Game {
 
 
     void stopAllNoteCutSoundEffects() {
-        for(int i = 0; i < noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->get_activeItems()->get_Count(); i++) {
-            auto noteCutSoundEffect = noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->get_activeItems()->get_Item(i);
+        for (int i = 0; i < noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->activeItems->Count; i++) {
+            auto noteCutSoundEffect = noteCutSoundEffectManager->_noteCutSoundEffectPoolContainer->activeItems->get_Item(i);
             noteCutSoundEffect->StopPlayingAndFinish();
         }
     }
 
     void despawnAllObjects() {
-        for(int i = 0; i < beatmapObjectManager->_allBeatmapObjects->get_Count(); i++) {
+        for (int i = 0; i < beatmapObjectManager->_allBeatmapObjects->Count; i++) {
             auto beatmapObject = beatmapObjectManager->_allBeatmapObjects->get_Item(i);
             // Dissolve instead of disable to trigger full despawn
-            reinterpret_cast<UnityEngine::MonoBehaviour*>(beatmapObject)->get_gameObject()->SetActive(true);
+            reinterpret_cast<UnityEngine::MonoBehaviour*>(beatmapObject)->gameObject->SetActive(true);
             beatmapObject->Dissolve(0);
         }
     }
@@ -130,21 +143,26 @@ namespace PracticeTools::Game {
 
 
     void manualPause() {
-        if(getPracticeToolsConfig().fullPause.GetValue()) gamePause->Pause();
-        else audioTimeSyncController->Pause();
+        if (getPracticeToolsConfig().fullPause.GetValue())
+            gamePause->Pause();
+        else
+            audioTimeSyncController->Pause();
+
         stopAllNoteCutSoundEffects();
     }
 
     void manualResume() {
-        if(getPracticeToolsConfig().fullPause.GetValue()) gamePause->Resume();
-        else audioTimeSyncController->Resume();
+        if (getPracticeToolsConfig().fullPause.GetValue())
+            gamePause->Resume();
+        else
+            audioTimeSyncController->Resume();
     }
 
     void manualSeekToAbsolute(float songTime) {
         isTimeSkipping = true;
-        bool reverse = songTime < audioTimeSyncController->get_songTime();
+        bool reverse = songTime < audioTimeSyncController->songTime;
 
-        songTime = std::max(0.0f, std::min(songTime, audioTimeSyncController->_audioSource->get_clip()->get_length() - 0.01f));
+        songTime = std::max(0.0f, std::min(songTime, audioTimeSyncController->_audioSource->clip->length - 0.01f));
         audioTimeSyncController->_startSongTime = songTime;
         audioTimeSyncController->SeekTo(0);
 
@@ -155,10 +173,12 @@ namespace PracticeTools::Game {
         despawnAllObjects();
         stopAllNoteCutSoundEffects();
 
-        if(!reverse) return;
-        for(auto callbacksInTime : beatmapCallbacksController->_callbacksInTimes->_entries) {
-            while(callbacksInTime.value && callbacksInTime.value->lastProcessedNode != nullptr && callbacksInTime.value->lastProcessedNode->get_Value()->get_time() > songTime) {
-                callbacksInTime.value->lastProcessedNode = callbacksInTime.value->lastProcessedNode->get_Previous();
+        if (!reverse)
+            return;
+
+        for (auto callbacksInTime : beatmapCallbacksController->_callbacksInTimes->_entries) {
+            while (callbacksInTime.value && callbacksInTime.value->lastProcessedNode != nullptr && callbacksInTime.value->lastProcessedNode->Value->time > songTime) {
+                callbacksInTime.value->lastProcessedNode = callbacksInTime.value->lastProcessedNode->Previous;
             }
         }
     }
@@ -167,7 +187,7 @@ namespace PracticeTools::Game {
     // I will also need a component or a more active hook to deal with the BeatmapCallbacksController callbacksInTimes
     void manualSetTimeScale(float timeScale) {
         audioTimeSyncController->_timeScale = timeScale;
-        audioTimeSyncController->_audioSource->set_pitch(timeScale);
+        audioTimeSyncController->_audioSource->pitch = timeScale;
         audioManager->musicPitch = 1 / timeScale;
         // TODO Adjust speed of NoteCutSoundEffects, or just stop them
     }

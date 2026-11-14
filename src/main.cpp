@@ -22,7 +22,7 @@ void handleMapStart() {
 }
 
 void handleMapUpdate() {
-    if(!PracticeTools::Game::areShortcutsEnabled())
+    if (!PracticeTools::Game::areShortcutsEnabled())
         return;
 
     PracticeTools::ControllerInput::handleControllerInputs();

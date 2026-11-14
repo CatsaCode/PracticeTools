@@ -90,6 +90,10 @@ namespace PracticeTools::ControllerInput {
         if (ANALOG_ACTIVE(leftThumbstickVertical))    EXECUTE_CONTROLLER_FUNCTION(ThumbstickFunction, leftThumbstickVerticalOnUpdate, controllerState.leftThumbstickVerticalInput);
         if (ANALOG_ACTIVE(rightThumbstickHorizontal)) EXECUTE_CONTROLLER_FUNCTION(ThumbstickFunction, rightThumbstickHorizontalOnUpdate, controllerState.rightThumbstickHorizontalInput);
         if (ANALOG_ACTIVE(rightThumbstickVertical))   EXECUTE_CONTROLLER_FUNCTION(ThumbstickFunction, rightThumbstickVerticalOnUpdate, controllerState.rightThumbstickVerticalInput);
+
+        #undef JUST_CLICKED
+        #undef ANALOG_ACTIVE
+        #undef EXECUTE_CONTROLLER_FUNCTION
     }
 
 }
