@@ -9,24 +9,37 @@
 #include "GlobalNamespace/GameSongController.hpp"
 #include "GlobalNamespace/PauseController.hpp"
 #include "GlobalNamespace/IGamePause.hpp"
-#include "GlobalNamespace/BeatmapObjectManager.hpp"
+#include "GlobalNamespace/BasicBeatmapObjectManager.hpp"
 #include "GlobalNamespace/BeatmapCallbacksController.hpp"
 #include "GlobalNamespace/NoteCutSoundEffectManager.hpp"
 #include "GlobalNamespace/NoteCutSoundEffect.hpp"
-#include "GlobalNamespace/IBeatmapObjectController.hpp"
 #include "GlobalNamespace/MemoryPoolContainer_1.hpp"
 #include "GlobalNamespace/CallbacksInTime.hpp"
 #include "GlobalNamespace/AudioManagerSO.hpp"
 #include "GlobalNamespace/BeatmapDataItem.hpp"
+
+#include "GlobalNamespace/IVariableMovementDataProvider.hpp"
+#include "GlobalNamespace/NoteController.hpp"
 #include "GlobalNamespace/NoteData.hpp"
+#include "GlobalNamespace/NoteMovement.hpp"
+#include "GlobalNamespace/NoteWaiting.hpp"
+#include "GlobalNamespace/NoteJump.hpp"
+#include "GlobalNamespace/SliderController.hpp"
+#include "GlobalNamespace/SliderData.hpp"
+#include "GlobalNamespace/SliderMovement.hpp"
+#include "GlobalNamespace/ObstacleController.hpp"
+#include "GlobalNamespace/ObstacleData.hpp"
+
 #include "GlobalNamespace/GameplayCoreInstaller.hpp"
+
 #include "UnityEngine/Resources.hpp"
 #include "UnityEngine/GameObject.hpp"
-#include "System/Collections/Generic/Dictionary_2.hpp"
-#include "System/Collections/Generic/LinkedListNode_1.hpp"
 #include "UnityEngine/AudioSource.hpp"
 #include "UnityEngine/AudioClip.hpp"
 #include "UnityEngine/Time.hpp"
+
+#include "System/Collections/Generic/Dictionary_2.hpp"
+#include "System/Collections/Generic/LinkedListNode_1.hpp"
 
 namespace PracticeTools::Game {
 
@@ -36,7 +49,7 @@ namespace PracticeTools::Game {
     static UnityW<GlobalNamespace::NoteCutSoundEffectManager> noteCutSoundEffectManager = nullptr;
     static UnityW<GlobalNamespace::AudioManagerSO> audioManager = nullptr;
     static GlobalNamespace::IGamePause* gamePause = nullptr;
-    static GlobalNamespace::BeatmapObjectManager* beatmapObjectManager = nullptr;
+    static GlobalNamespace::BasicBeatmapObjectManager* beatmapObjectManager = nullptr;
     static GlobalNamespace::BeatmapCallbacksController* beatmapCallbacksController = nullptr;
 
     static bool isPracticing = false;
@@ -61,7 +74,7 @@ namespace PracticeTools::Game {
         FIND_OBJECT(noteCutSoundEffectManager, UnityEngine::Object::FindObjectOfType<GlobalNamespace::NoteCutSoundEffectManager*>());
         FIND_OBJECT(gamePause, pauseController->_gamePause);
         FIND_OBJECT(audioManager, noteCutSoundEffectManager->_audioManager);
-        FIND_OBJECT(beatmapObjectManager, MetaCore::Internals::beatmapObjectManager);
+        FIND_OBJECT(beatmapObjectManager, reinterpret_cast<GlobalNamespace::BasicBeatmapObjectManager*>(MetaCore::Internals::beatmapObjectManager));
         FIND_OBJECT(beatmapCallbacksController, MetaCore::Internals::beatmapCallbacksController);
 
         #undef FIND_OBJECT
@@ -100,12 +113,66 @@ namespace PracticeTools::Game {
         }
     }
 
-    void despawnAllObjects() {
-        for (int i = 0; i < beatmapObjectManager->_allBeatmapObjects->Count; i++) {
-            auto beatmapObject = beatmapObjectManager->_allBeatmapObjects->get_Item(i);
-            // Dissolve instead of disable to trigger full despawn
-            reinterpret_cast<UnityEngine::MonoBehaviour*>(beatmapObject)->gameObject->SetActive(true);
-            beatmapObject->Dissolve(0);
+    // Direct BeatmapObjectManager::Despawn is prone to crashing
+    void safeDespawn(GlobalNamespace::IBeatmapObjectController* beatmapObject) {
+        beatmapObject->Hide(false);
+        beatmapObject->Pause(false);
+        il2cpp_utils::cast<UnityEngine::MonoBehaviour>(beatmapObject)->gameObject->SetActive(true);
+        beatmapObject->Dissolve(0);
+    }
+
+    void despawnDidPassHalfBeatmapObjects() {
+        for (int i = beatmapObjectManager->_allBeatmapObjects->Count - 1; i >= 0; i--) {
+            auto* beatmapObject = beatmapObjectManager->_allBeatmapObjects->get_Item(i);
+
+            if (auto noteController = il2cpp_utils::try_cast<GlobalNamespace::NoteController>(beatmapObject).value_or(nullptr))
+                if (auto* noteData = noteController->_noteData)
+                    if (audioTimeSyncController->songTime - noteData->time >= 0)
+                        safeDespawn(beatmapObject);
+
+            if (auto sliderController = il2cpp_utils::try_cast<GlobalNamespace::SliderController>(beatmapObject).value_or(nullptr))
+                if (auto* sliderData = sliderController->_sliderData)
+                    if (audioTimeSyncController->songTime - sliderData->time >= 0)
+                        safeDespawn(beatmapObject);
+
+            if (auto obstacleController = il2cpp_utils::try_cast<GlobalNamespace::ObstacleController>(beatmapObject).value_or(nullptr))
+                if (auto* obstacleData = obstacleController->_obstacleData)
+                    if (audioTimeSyncController->songTime - obstacleData->time >= 0)
+                        safeDespawn(beatmapObject);
+        }
+    }
+
+    void despawnPreWaitingBeatmapObjects() {
+        float songTime = audioTimeSyncController->songTime;
+        for (int i = beatmapObjectManager->_allBeatmapObjects->Count - 1; i >= 0; i--) {
+            auto* beatmapObject = beatmapObjectManager->_allBeatmapObjects->get_Item(i);
+
+            if (auto* noteController = il2cpp_utils::try_cast<GlobalNamespace::NoteController>(beatmapObject).value_or(nullptr)) {
+                if (!noteController->_noteData || !noteController->_noteMovement || !noteController->_noteMovement->_variableMovementDataProvider)
+                    continue;
+                float noteTime = noteController->_noteData->time;
+                float spawnAheadTime = noteController->_noteMovement->_variableMovementDataProvider->spawnAheadTime;
+                if (songTime - noteTime < -spawnAheadTime)
+                    safeDespawn(beatmapObject);
+            }
+
+            if (auto* sliderController = il2cpp_utils::try_cast<GlobalNamespace::SliderController>(beatmapObject).value_or(nullptr)) {
+                if (!sliderController->_sliderData || !sliderController->_sliderMovement || !sliderController->_sliderMovement->_variableMovementDataProvider)
+                    continue;
+                float noteTime = sliderController->_sliderData->time;
+                float spawnAheadTime = sliderController->_sliderMovement->_variableMovementDataProvider->spawnAheadTime;
+                if (songTime - noteTime < -spawnAheadTime)
+                    safeDespawn(beatmapObject);
+            }
+
+            if (auto* obstacleController = il2cpp_utils::try_cast<GlobalNamespace::ObstacleController>(beatmapObject).value_or(nullptr)) {
+                if (!obstacleController->_obstacleData || !obstacleController->_variableMovementDataProvider)
+                    continue;
+                float noteTime = obstacleController->_obstacleData->time;
+                float spawnAheadTime = obstacleController->_variableMovementDataProvider->spawnAheadTime;
+                if (songTime - noteTime < -spawnAheadTime)
+                    safeDespawn(beatmapObject);
+            }
         }
     }
 
@@ -145,6 +212,8 @@ namespace PracticeTools::Game {
         if (deltaSongTime >= 0)
             return;
 
+        despawnDidPassHalfBeatmapObjects();
+
         for (auto callbacksInTime : beatmapCallbacksController->_callbacksInTimes->_entries) {
             auto* value = callbacksInTime.value;
             auto* node = value->lastProcessedNode;
@@ -176,6 +245,8 @@ namespace PracticeTools::Game {
                 node = node->Previous;
             }
         }
+
+        despawnPreWaitingBeatmapObjects();
     }
 
     // Will likely need to hook and rewrite AudioTimeSyncController::Update to remove any time fixing stuff if I want to try backwards audio
