@@ -100,19 +100,8 @@ namespace PracticeTools::Game {
         MetaCore::Game::SetScoreSubmission(MOD_ID, !(getPracticeToolsConfig().enabled.GetValue() && isPracticing));
     }
 
-    // MAKE_HOOK_MATCH(
-    //     AudioSource_set_time,
-    //     &GlobalNamespace::AudioTimeSyncController::,
-    //     void, UnityEngine::AudioSource* self, float time
-    // ) {
-    //     PaperLogger.debug("Currently: {}, now: {}", self->time, time);
-    //     PaperLogger.Backtrace(15);
-    //     AudioSource_set_time(self, time);
-    // }
-
     void installHooks() {
         INSTALL_HOOK(PaperLogger, GameplayCoreInstaller_InstallBindings);
-        // INSTALL_HOOK(PaperLogger, AudioSource_set_time);
     }
 
 
@@ -209,13 +198,13 @@ namespace PracticeTools::Game {
         float deltaSongTime = songTime - audioTimeSyncController->songTime;
 
         songTime = std::max(0.0f, std::min(songTime, audioTimeSyncController->_audioSource->clip->length - 0.01f));
-        audioTimeSyncController->forceNoAudioSyncOrAudioSyncErrorFixing = true;
         audioTimeSyncController->_startSongTime = songTime;
         audioTimeSyncController->SeekTo(0);
+        audioTimeSyncController->_prevAudioSamplePos -= audioTimeSyncController->_audioSource->clip->frequency * UnityEngine::Time::get_deltaTime() * audioTimeSyncController->_timeScale;
 
         beatmapCallbacksController->_songTime = songTime;
         // Letting Beat Saber invoke callbacks in reverse can crash the game
-        beatmapCallbacksController->_prevSongTime = songTime - UnityEngine::Time::get_deltaTime();
+        beatmapCallbacksController->_prevSongTime = songTime - UnityEngine::Time::get_deltaTime() * audioTimeSyncController->_timeScale;
 
         stopAllNoteCutSoundEffects();
         noteCutSoundEffectManager->_prevNoteATime = songTime;
