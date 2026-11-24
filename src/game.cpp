@@ -266,6 +266,9 @@ namespace PracticeTools::Game {
     // Will likely need to hook and rewrite AudioTimeSyncController::Update to remove any time fixing stuff if I want to try backwards audio
     // I will also need a component or a more active hook to deal with the BeatmapCallbacksController callbacksInTimes
     void manualSetTimeScale(float timeScale) {
+        float expectedTime = UnityEngine::Time::get_timeSinceLevelLoad() * audioTimeSyncController->_timeScale - audioTimeSyncController->_audioStartTimeOffsetSinceStart;
+        audioTimeSyncController->_audioStartTimeOffsetSinceStart = UnityEngine::Time::get_timeSinceLevelLoad() * timeScale - expectedTime;
+
         audioTimeSyncController->_timeScale = timeScale;
         audioTimeSyncController->_audioSource->pitch = timeScale;
         audioManager->musicPitch = 1 / timeScale;
