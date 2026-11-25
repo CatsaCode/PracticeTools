@@ -17,6 +17,8 @@
 #include "GlobalNamespace/CallbacksInTime.hpp"
 #include "GlobalNamespace/AudioManagerSO.hpp"
 #include "GlobalNamespace/BeatmapDataItem.hpp"
+#include "GlobalNamespace/BeatmapEventData.hpp"
+#include "GlobalNamespace/BPMChangeBeatmapEventData.hpp"
 
 #include "GlobalNamespace/IVariableMovementDataProvider.hpp"
 #include "GlobalNamespace/NoteController.hpp"
@@ -203,7 +205,7 @@ namespace PracticeTools::Game {
         audioTimeSyncController->_prevAudioSamplePos -= audioTimeSyncController->_audioSource->clip->frequency * UnityEngine::Time::get_deltaTime() * audioTimeSyncController->_timeScale;
 
         beatmapCallbacksController->_songTime = songTime;
-        // Letting Beat Saber invoke callbacks in reverse can crash the game
+        // Disable automatic callback reversal; BeatmapCallbacksController::ManualUpdate will crash if it attempts using default BPMChangeBeatmapEventData
         beatmapCallbacksController->_prevSongTime = songTime - UnityEngine::Time::get_deltaTime() * audioTimeSyncController->_timeScale;
 
         stopAllNoteCutSoundEffects();
@@ -221,19 +223,23 @@ namespace PracticeTools::Game {
                 continue;
             auto* node = value->lastProcessedNode;
 
-            // Reverse lastProcessedNode to the new spawn time
             while (
                 node &&
                 node->Value->time - value->aheadTime > songTime
             ) {
-                if (node->Value->type == GlobalNamespace::BeatmapDataItem::BeatmapDataItemType::BeatmapEvent)
-                    beatmapCallbacksController->_callCallbacksBehavior->CallCallbacks(value, node->Value);
+                if (node->Value->type == GlobalNamespace::BeatmapDataItem::BeatmapDataItemType::BeatmapEvent) {
+                    auto beatmapEventData = il2cpp_utils::try_cast<GlobalNamespace::BeatmapEventData>(node->Value);
+                    PaperLogger.debug("Executing previous {} callback, default: {}", il2cpp_utils::ClassStandardName(beatmapEventData.value()->klass), beatmapEventData.value()->previousSameTypeEventData == nullptr);
+                    if (beatmapEventData.value()->previousSameTypeEventData)
+                        beatmapCallbacksController->_callCallbacksBehavior->CallCallbacks(value, beatmapEventData.value()->previousSameTypeEventData);
+                    else if (beatmapEventData.value()->GetDefault())
+                        beatmapCallbacksController->_callCallbacksBehavior->CallCallbacks(value, beatmapEventData.value()->GetDefault(beatmapEventData.value()));
+                }
 
                 value->lastProcessedNode = node->Previous;
                 node = node->Previous;
             }
 
-            // Spawn nearby notes that haven't been spawned yet
             while (
                 node &&
                 node->Value->time > songTime
