@@ -90,14 +90,14 @@ namespace PracticeTools::ControllerFunctions {
             case HoldFunction::SkipForward: {
                 float offset = getPracticeToolsConfig().skipDuration.GetValue() * input * getPracticeToolsConfig().sensitivity.GetValue() * UnityEngine::Time::get_deltaTime();
                 if (Game::audioTimeSyncController->state == GlobalNamespace::AudioTimeSyncController::State::Playing)
-                    offset -= UnityEngine::Time::get_deltaTime();
+                    offset -= UnityEngine::Time::get_deltaTime() * Game::audioTimeSyncController->timeScale;
                 Game::manualSeekToAbsolute(Game::audioTimeSyncController->songTime + offset);
                 break;
             }
             case HoldFunction::SkipBackward: {
                 float offset = -getPracticeToolsConfig().skipDuration.GetValue() * input * getPracticeToolsConfig().sensitivity.GetValue() * UnityEngine::Time::get_deltaTime();
                 if (Game::audioTimeSyncController->state == GlobalNamespace::AudioTimeSyncController::State::Playing)
-                    offset -= UnityEngine::Time::get_deltaTime();
+                    offset -= UnityEngine::Time::get_deltaTime() * Game::audioTimeSyncController->timeScale;
                 Game::manualSeekToAbsolute(Game::audioTimeSyncController->songTime + offset);
                 break;
             }
@@ -125,7 +125,7 @@ namespace PracticeTools::ControllerFunctions {
             case ThumbstickFunction::TimeSkip: {
                 float offset = getPracticeToolsConfig().skipDuration.GetValue() * input * getPracticeToolsConfig().sensitivity.GetValue() * UnityEngine::Time::get_deltaTime();
                 if (Game::audioTimeSyncController->state == GlobalNamespace::AudioTimeSyncController::State::Playing)
-                    offset -= UnityEngine::Time::get_deltaTime();
+                    offset -= UnityEngine::Time::get_deltaTime() * Game::audioTimeSyncController->timeScale;
                 Game::manualSeekToAbsolute(Game::audioTimeSyncController->songTime + offset);
                 break;
             }
